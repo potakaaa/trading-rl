@@ -193,3 +193,10 @@ setting can produce a trade targeting less than 1R.
 1 is what luck alone looks like. We want about 2.5 or more before trusting a result.
 
 Run it with: `uv run python -m src.cli backtest research` (report: `reports/research_latest.html`).
+
+**Holdout result (2026-10-16):** you picked `fixed_1_5r_target`. On the untouched 2025-2026 data
+it made **-0.11 R per trade** over 17 trades (win rate 35%, t-stat -0.40). In-sample it showed
++0.13 R. That is the classic shape of a result that was luck: decent in-sample, gone out of
+sample. Every variant shown so far fails that test, so the honest conclusion is that **these ICT rules,
+as defined, show no reliable edge on US100**. The holdout is now spent. A new idea must prove
+itself on new data (paper trading) before real money.

@@ -168,6 +168,8 @@ challenge:
 # data before holdout_start only. The holdout is used once, on the single variant Rald picks.
 research:
   holdout_start: "2025-01-01"
+  # 2026-10-16: holdout USED once on fixed_1_5r_target -> -0.107 R over 17 trades (t -0.40). FAILED.
+  # Any new idea now needs a fresh out-of-sample period (paper trading) before it can be trusted.
   variants:                      # name -> dotted setting overrides (applied on top of this file)
     baseline: {}
     min_rr_1: {setups.min_rr: 1.0}

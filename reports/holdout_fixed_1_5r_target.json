@@ -1,0 +1,15 @@
+{
+ "variant": "fixed_1_5r_target",
+ "overrides": "setups.target_mode=fixed_r, setups.fixed_target_r=1.5, setups.min_rr=1.5",
+ "valid_setups": 56,
+ "filled": 17,
+ "fills_per_year": 9.523389570552148,
+ "win_rate": 0.35294117647058826,
+ "expectancy_r": -0.10720049991081303,
+ "expectancy_r_2x_spread": -0.11211816838783373,
+ "t_stat": -0.40446089530625823,
+ "profit_factor": 0.8048237585094474,
+ "total_r": -1.8224084984838214,
+ "max_drawdown_r": 5.741879354359948,
+ "positive_years": "1/2"
+}

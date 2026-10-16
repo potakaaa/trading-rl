@@ -9,6 +9,7 @@
     uv run python -m src.cli charts sample [--n 20] [--seed 1]
     uv run python -m src.cli backtest run
     uv run python -m src.cli backtest research
+    uv run python -m src.cli backtest round2     # 7 pre-registered strategies + RL filter
     uv run python -m src.cli live run            # API + live paper engine (one command)
     uv run python -m src.cli live check-feed
     uv run python -m src.cli live paper-report   # Phase 7: paper vs backtest
@@ -170,6 +171,37 @@ def cmd_live_paper_report(s, a):
     print(f"report: {PROJECT_ROOT / 'reports' / 'paper_latest.html'}")
 
 
+def cmd_backtest_round2(s, a):
+    """Round-2 research: 7 pre-registered strategies + RL trade filter (docs/STRATEGIES.md)."""
+    import pandas as pd
+
+    from src.backtest.engine import M1, run_raw
+    from src.backtest.fills import Costs
+    from src.data.store import load_bars
+    from src.ml.rl_filter import build_features, rl_passes, walk_forward
+    from src.news.historical import load_history
+    from src.strategies.research import run, write_report
+    c, table = run(s)
+    start, end = pd.Timestamp(s.backtest.start, tz="UTC"), pd.Timestamp(s.research.holdout_start, tz="UTC")
+    m1 = M1.from_frame(load_bars(s, "1m", start, end))
+    z = run_raw(c, m1, s, Costs(0, 0, 0)).set_index("setup_id")
+    c["r_gross"] = z["r"].reindex(c.index).to_numpy()
+    gross = c[c["filled"].astype(bool)].groupby("setup_type")["r_gross"].mean()
+    b5 = load_bars(s, "5m", start - pd.Timedelta(days=60), end)
+    d1 = load_bars(s, "1d", start - pd.Timedelta(days=120), end)
+    feats = build_features(c, b5, d1, load_history(s), s)
+    folds = [(f"{y}-{m:02d}-01", f"{y if m == 1 else y + 1}-{7 if m == 1 else 1:02d}-01")
+             for y in range(start.year + 2, end.year) for m in (1, 7)]
+    wf = walk_forward(feats, folds)
+    verdict = rl_passes(wf)
+    out = PROJECT_ROOT / "reports" / "round2_latest.html"
+    out.write_text(write_report(table, gross, wf, verdict, s))
+    print(table[["filled", "win_rate", "expectancy_r", "expectancy_r_2x_spread", "t_stat", "positive_years",
+                 "PASS"]].round(3).to_string())
+    print("RL filter:", "PASS" if verdict[0] else "FAIL", "-", verdict[1])
+    print(f"report: {out}")
+
+
 def main(argv=None):
     load_dotenv(PROJECT_ROOT / ".env")
     p = argparse.ArgumentParser(prog="src.cli")
@@ -203,6 +235,7 @@ def main(argv=None):
     b = sub.add_parser("backtest").add_subparsers(dest="cmd", required=True)
     b.add_parser("run").set_defaults(fn=cmd_backtest_run)
     b.add_parser("research").set_defaults(fn=cmd_research_run)
+    b.add_parser("round2").set_defaults(fn=cmd_backtest_round2)
 
     lv = sub.add_parser("live").add_subparsers(dest="cmd", required=True)
     x = lv.add_parser("run")

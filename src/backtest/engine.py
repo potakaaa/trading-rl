@@ -32,6 +32,11 @@ TRADE_COLUMNS = [
 ]
 
 
+def _order_type(s) -> str:
+    v = s.get("order_type") if hasattr(s, "get") else None
+    return v if isinstance(v, str) else "limit"
+
+
 def costs_from_settings(s: Settings, spread_mult: float = 1.0) -> Costs:
     return Costs(spread=s.broker.typical_spread_points * spread_mult,
                  stop_slippage=s.backtest.stop_slippage_points,
@@ -65,6 +70,10 @@ def _deadlines(setup, settings: Settings, cal: NewsCalendar | None):
 
 def _trade_row(sid, setup, f: Fill, costs: Costs, lot_value: float, lots: float | None) -> dict:
     risk_pts = float(setup["risk_pts"])
+    if setup.get("order_type") == "market" and f.filled:
+        risk_pts = abs(f.fill_price - float(setup["stop"]))        # R is measured from the actual fill
+        if risk_pts <= 0:
+            risk_pts = float(setup["risk_pts"])
     comm_r = costs.commission_per_lot / (risk_pts * lot_value) if f.filled else 0.0
     r = f.pnl_pts / risk_pts - comm_r if f.filled else 0.0
     mfe_r = f.mfe_pts / risk_pts if f.filled else 0.0
@@ -93,7 +102,8 @@ def run_raw(setups: pd.DataFrame, m1: M1, settings: Settings, costs: Costs) -> p
     rows = []
     for sid, s in v.iterrows():
         armed, od, fd, orr, frr = _deadlines(s, settings, None)
-        f = simulate(m1, s["direction"], s["entry"], s["stop"], s["target"], armed, od, fd, costs, orr, frr)
+        f = simulate(m1, s["direction"], s["entry"], s["stop"], s["target"], armed, od, fd, costs, orr, frr,
+                     order_type=_order_type(s))
         rows.append(_trade_row(sid, s, f, costs, settings.broker.lot_value_per_point, None))
     df = pd.DataFrame(rows).reindex(columns=TRADE_COLUMNS)
     if len(df):
@@ -199,7 +209,8 @@ def run_guarded(setups: pd.DataFrame, m1: M1, settings: Settings, costs: Costs,
 
         state.record_signal(s["session"])
         armed, od, fd, orr, frr = _deadlines(s, settings, cal)
-        f = simulate(m1, s["direction"], s["entry"], s["stop"], s["target"], armed, od, fd, costs, orr, frr)
+        f = simulate(m1, s["direction"], s["entry"], s["stop"], s["target"], armed, od, fd, costs, orr, frr,
+                     order_type=_order_type(s))
         row = _trade_row(sid, s, f, costs, lot_value, dec.size.lots)
         row["trading_day"] = td
         row["account"] = account_no

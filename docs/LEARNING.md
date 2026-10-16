@@ -270,3 +270,38 @@ writes `reports/paper_latest.html` and sends a summary alert. You can also run
 land within ±2 × (backtest spread of R) / √n of the backtest average about 95% of the time. Outside
 that band = DRIFT, meaning live differs from what we tested. With about 0.5 signals per week, 4 weeks
 gives only a few trades. That is too few to prove anything either way, which is why the verdict says so.
+
+## Round 2: seven more strategies + a reinforcement-learning trade filter (2026-10-16)
+
+**What was tested:** opening-range breakout (15 and 30 min), VWAP band fade, opening momentum,
+"first half hour predicts last half hour" momentum, overnight gap fade and prior-day high/low
+breakout. All entered at market with the same costs, sessions and prop rules as before. The rules
+and pass criteria were committed **before** any test ran (`docs/STRATEGIES.md`, commit `de60517`),
+so they could not be adjusted to fit the results.
+
+**Result: none passed.** Every strategy lost money on 2019-2024 (3,300+ trades for the bigger
+ones), including before costs. VWAP fade -0.30 R per trade (t -8.8), first/last half-hour momentum
+-0.13 R (t -5.5), gap fade -0.39 R. The best was prior-day breakout at -0.06 R (+0.06 R before
+costs, too small to survive a 2-point spread).
+
+**Why costs matter so much:** a strategy with a 15-point stop pays 2 points of spread per trade.
+That is about 0.13 R gone before the market moves. Short-stop intraday ideas need a very real edge
+to beat that.
+
+**The RL filter** (fitted Q-iteration, `src/ml/rl_filter.py`) learns, walk-forward, whether to skip,
+take at half size or take at full size for each candidate. It is rewarded with the R it makes,
+penalised more for losses, and penalised again for drawing the day down by 2R or more.
+- **Synthetic checks:** to show the RL works, `tests/test_rl_filter.py` plants an edge in fake data.
+  The agent finds it and profits out of sample. On pure noise it learns to skip.
+- **Real data:** it learned to skip almost everything (91 trades out of about 3,000 candidates in 4 years).
+  It beat "take everything" in all 8 test periods, but only by losing less: -5.1 R total out of sample.
+- **Conclusion:** there is no profitable pocket inside these strategies for it to find. Skipping was
+  the honest best answer.
+
+**Win rate vs profit:** the highest win rate was momentum at 48%, and it still lost (wins of 1R vs
+losses of slightly more after costs). Accuracy alone never makes a strategy profitable.
+
+Per the pre-registration, the final 2025-2026 test was **not** run, because nothing qualified for it.
+
+Run everything again with `uv run python -m src.cli backtest round2` (report:
+`reports/round2_latest.html`). LightGBM on macOS needs `brew install libomp` (already installed).

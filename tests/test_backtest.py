@@ -415,3 +415,33 @@ def test_research_variants_all_valid(settings):
     from src.backtest.research import apply_overrides
     for name, ov in settings.research.variants.items():
         assert apply_overrides(settings, ov).setups.min_rr >= 1.0, name
+
+
+# ------------------------------------------------------------------- market orders (round 2)
+
+def test_market_order_fills_at_next_open_long_pays_spread():
+    rows = [(100, 101, 99.5, 100.5), (100.5, 104, 100, 103.5)]
+    m = M1.from_frame(m1_frame(rows))
+    armed = ny("2024-06-11 10:00")
+    f = simulate(m, "long", 0, 98, 103, armed, armed + pd.Timedelta("5min"), armed + pd.Timedelta("30min"),
+                 Costs(1.0, 0), order_type="market")
+    assert f.fill_price == pytest.approx(101.0) and f.fill_time == armed
+    assert f.outcome == "tp" and f.exit_time == ny("2024-06-11 10:02")
+
+
+def test_market_order_target_on_fill_bar_counts_but_stop_wins_tie():
+    m = M1.from_frame(m1_frame([(100, 106, 99.5, 105)]))
+    armed = ny("2024-06-11 10:00")
+    args = (armed, armed + pd.Timedelta("5min"), armed + pd.Timedelta("30min"), NO_COST)
+    assert simulate(m, "long", 0, 98, 105, *args, order_type="market").outcome == "tp"
+    m2 = M1.from_frame(m1_frame([(100, 106, 97, 105)]))
+    assert simulate(m2, "long", 0, 98, 105, *args, order_type="market").outcome == "sl"
+
+
+def test_market_r_measured_from_actual_fill(settings):
+    from src.backtest.engine import run_raw
+    s = setup_row(entry=100.0, stop=95.0, target=110.0)
+    s["order_type"] = "market"
+    rows = [(102, 103, 101.5, 102.5)] + [(102.5, 103, 102, 102.5)] * 5 + [(102, 111, 101.8, 110)]
+    raw = run_raw(pd.DataFrame([s]), M1.from_frame(m1_frame(rows)), settings, NO_COST)
+    assert raw.iloc[0]["outcome"] == "tp" and raw.iloc[0]["r"] == pytest.approx(8 / 7)   # filled 102, risk 7

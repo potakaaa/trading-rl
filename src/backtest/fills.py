@@ -67,8 +67,13 @@ def _t(ns: int) -> pd.Timestamp:
 
 def simulate(m1: M1, direction: str, entry: float, stop: float, target: float,
              armed_at: pd.Timestamp, order_deadline: pd.Timestamp, flat_deadline: pd.Timestamp,
-             costs: Costs, deadline_reason: str = "expired", flat_reason: str = "session_end") -> Fill:
-    """Simulate a limit order placed at `armed_at`.
+             costs: Costs, deadline_reason: str = "expired", flat_reason: str = "session_end",
+             order_type: str = "limit") -> Fill:
+    """Simulate a limit order (or a market order, `order_type="market"`) placed at `armed_at`.
+
+    Market orders fill at the OPEN of the first 1m bar at/after armed_at (longs at the ask), so the
+    whole fill bar happens after the fill: its target counts (stop still wins a tie). `entry` is then
+    ignored and the actual fill price is returned in Fill.fill_price.
 
     order_deadline: bars starting at/after this cannot fill (order expiry, news cut, session end).
     flat_deadline : an open position is closed at the close of the last bar starting before it.
@@ -81,13 +86,18 @@ def simulate(m1: M1, direction: str, entry: float, stop: float, target: float,
     if i >= n or m1.ts[i] >= od:
         return Fill("no_data" if i >= n else deadline_reason)
 
-    # ---------------------------------------------------------------- wait for the limit fill
+    market = order_type == "market"
     fill_i = -1
-    while i < n and m1.ts[i] < od:
-        if (m1.high[i] >= entry) if short else (m1.low[i] + sp <= entry):
-            fill_i = i
-            break
-        i += 1
+    if market:
+        fill_i = i
+        entry = m1.open[i] if short else m1.open[i] + sp
+    else:
+        # ------------------------------------------------------------ wait for the limit fill
+        while i < n and m1.ts[i] < od:
+            if (m1.high[i] >= entry) if short else (m1.low[i] + sp <= entry):
+                fill_i = i
+                break
+            i += 1
     if fill_i < 0:
         return Fill(deadline_reason)
 
@@ -115,9 +125,10 @@ def simulate(m1: M1, direction: str, entry: float, stop: float, target: float,
             f.outcome, f.exit_time, f.exit_price = "sl", _t(m1.ts[j] + 60_000_000_000), px
             break
         mae = max(mae, adverse)
-        if j > fill_i:                            # the fill bar's extreme may come before the fill
+        after_fill = market or j > fill_i         # a limit fill bar's extreme may come before the fill
+        if after_fill:
             mfe = max(mfe, favour)
-        if tgt_hit and j > fill_i:
+        if tgt_hit and after_fill:
             f.outcome, f.exit_time, f.exit_price = "tp", _t(m1.ts[j] + 60_000_000_000), target
             break
         j += 1

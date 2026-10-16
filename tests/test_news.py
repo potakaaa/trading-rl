@@ -40,6 +40,11 @@ def test_parse_ff_rejects_non_list():
         parse_ff({"error": "rate limited"})
 
 
+def test_parse_ff_rejects_empty_list():
+    with pytest.raises(NewsFeedError):
+        parse_ff([])
+
+
 def test_ff_provider_archives_and_fails_on_bad_response(settings):
     ok = httpx.MockTransport(lambda r: httpx.Response(200, json=FF))
     assert len(ForexFactoryProvider(settings, transport=ok).fetch()) == 2
@@ -184,3 +189,12 @@ def test_ny_time_to_utc_dst():
 def test_events_to_frame_empty():
     assert events_to_frame([]).empty
     assert len(events_to_frame([NewsEvent(ts=utc("2024-01-01"), title="x")])) == 1
+
+
+def test_parse_fomc_calendar_real_2024_page_snippet():
+    """Real federalreserve.gov markup (saved 2026-10-16). 2024 decision days are public record."""
+    from pathlib import Path
+    html = (Path(__file__).parent / "fixtures" / "fomc_calendar_2024_snippet.html").read_text()
+    assert [d for d in parse_fomc_calendar(html) if d.year == 2024] == [
+        date(2024, 1, 31), date(2024, 3, 20), date(2024, 5, 1), date(2024, 6, 12),
+        date(2024, 7, 31), date(2024, 9, 18), date(2024, 11, 7), date(2024, 12, 18)]

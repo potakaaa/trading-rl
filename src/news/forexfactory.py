@@ -24,6 +24,8 @@ class NewsFeedError(RuntimeError):
 def parse_ff(payload, currency: str = "USD", impact: str = "High") -> list[NewsEvent]:
     if not isinstance(payload, list):
         raise NewsFeedError("unexpected ForexFactory payload (not a list); feed may be rate-limiting")
+    if not payload:
+        raise NewsFeedError("ForexFactory payload is empty; refusing to treat it as 'no news'")
     out = []
     for e in payload:
         if e.get("country") != currency or e.get("impact") != impact:

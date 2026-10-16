@@ -120,3 +120,22 @@ highs/lows; a line ends where the level was taken. Orange X = sweep, white line 
 the MSS closed through, purple box = order block, green/red boxes = bullish/bearish FVGs,
 blue/red/green lines = entry/stop/target of a setup. The setup list is under the chart.
 Click legend items to hide layers.
+
+## First run on real data (2026-10-16)
+
+**What changed:** until now the code had only run on synthetic data. This run used the real
+Dukascopy US100 history (2019-01 to 2026-10, 2.66M clean 1-minute bars).
+
+- **Real data matched the assumptions.** The binary candle format, the price divisor (1000)
+  and the filler-bar rule were all right. DST is handled: the NY 09:30 open is 14:30 UTC in
+  winter and 13:30 UTC in summer.
+- **Downloads are flaky, so they resume.** Dukascopy times out on some days. A month with any failed
+  day is marked incomplete and retried on the next run, so you re-run the command until
+  nothing is incomplete.
+- **Fail-safe news feed:** a rate-limited, non-JSON or *empty* feed raises an error instead of
+  meaning "no news". An empty list looks like "safe to trade", which is the dangerous reading.
+- **Why 145 setups is not a bug.** Over 7.8 years there were 16,692 sweeps, 684 MSS and 145
+  valid setups (about 1.5 per month). Each filter only removes candidates. That is the honest output of the rules as
+  specified. Do not loosen filters to get more trades; that is how you overfit.
+- **Setups armed at the very end of a session** (16 of 145 have 5 minutes or less to fill) can
+  barely fill. This is a rule question for Rald, not something to patch silently.

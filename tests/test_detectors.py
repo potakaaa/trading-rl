@@ -221,6 +221,17 @@ def test_min_rr_rejects(settings):
     assert s[s.setup_type == "sweep_mss_fvg"].iloc[0].status == "rr_below_min"
 
 
+@pytest.mark.parametrize("min_left,expected", [(80, "valid"), (81, "too_close_to_session_end")])
+def test_setup_too_close_to_session_end(settings, min_left, expected):
+    """Armed 10:10 NY, NY AM ends 11:30 -> exactly 80 minutes left."""
+    settings.detectors.premium_discount.enabled = False
+    settings.setups.min_minutes_to_session_end = min_left
+    b = overnight_session(settings)
+    htf = {tf: resample(b.drop(columns="end"), tf) for tf in ("15m", "4h", "1d")}
+    s = detect_all(b, htf, settings).setups
+    assert s[s.setup_type == "sweep_mss_fvg"].iloc[0].status == expected
+
+
 # ----------------------------------------------------------------- premium/discount and bias
 
 def test_premium_discount_position():

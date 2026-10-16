@@ -126,6 +126,7 @@ class Broker(BaseModel):
     min_lot: float
     typical_spread_points: float | None = None
     price_offset: float = 0.0
+    unconfirmed: list[str] = []
 
 
 class InternalBuffers(BaseModel):
@@ -202,6 +203,26 @@ class Setups(BaseModel):
     min_rr: float
     entry_expiry_bars: int
     require_htf_alignment: bool
+    min_minutes_to_session_end: int = 0
+
+
+class Backtest(BaseModel):
+    start: str
+    end: str | None = None
+    spread_stress_mult: float
+    stop_slippage_points: float
+    commission_per_lot: float
+    one_position_at_a_time: bool
+    news_exit: Literal["flatten_before"]
+    reset_on_halt: bool
+
+
+class Challenge(BaseModel):
+    phase_targets_pct: list[float]
+    min_trading_days: int
+    max_days_per_phase: int
+    n_simulations: int
+    seed: int
 
 
 class Settings(BaseModel):
@@ -216,6 +237,8 @@ class Settings(BaseModel):
     internal_buffers: InternalBuffers
     detectors: Detectors
     setups: Setups
+    backtest: Backtest
+    challenge: Challenge
 
     def missing_todos(self) -> list[str]:
         required = {

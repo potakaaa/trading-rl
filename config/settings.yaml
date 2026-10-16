@@ -19,14 +19,14 @@ account:
   plan: 2-Step Swift
   initial_balance: 2500        # confirmed by Rald
   risk_per_trade_pct: 0.5      # = $12.50 per trade on 2,500
-  daily_loss_limit_pct: null   # TODO(Rald): from Equity Edge dashboard
-  max_drawdown_pct: null       # TODO(Rald): static drawdown, from Equity Edge dashboard
+  daily_loss_limit_pct: 4.0    # confirmed by Rald (2-Step Swift); measured from start-of-day balance
+  max_drawdown_pct: 8.0        # confirmed by Rald; static, from initial balance (floor = 92%)
 
 news:
   currency: USD
   impact: High
-  blackout_minutes_before: null  # TODO(Rald): from Equity Edge rules
-  blackout_minutes_after: null   # TODO(Rald): from Equity Edge rules
+  blackout_minutes_before: 8     # UNCONFIRMED: sources say 2 (Swift) or 8; using the stricter 8
+  blackout_minutes_after: 8      # UNCONFIRMED: see above
   refresh_minutes: 30
   stale_after_minutes: 120       # live feed older than this = "news unavailable" -> no signals
   live_feed_url: https://nfs.faireconomy.media/ff_calendar_thisweek.json
@@ -84,11 +84,12 @@ live:
     price_component: B           # B = bid candles (matches Dukascopy BID history)
 
 broker:
-  lot_value_per_point: null    # TODO(Rald): $ per 1.0 point move, 1 lot US100 on Match-Trader
+  lot_value_per_point: 1.0     # UNCONFIRMED: common prop-firm US100 spec; check the Match-Trader order ticket
   lot_step: 0.01
   min_lot: 0.01
-  typical_spread_points: null  # TODO(Rald): US100 spread during NY session
+  typical_spread_points: 2.0   # UNCONFIRMED: conservative estimate; check during NY session
   price_offset: 0.0            # broker price minus feed price, adjustable in dashboard
+  unconfirmed: [lot_value_per_point, typical_spread_points]  # shown as warnings in every report
 
 internal_buffers:              # stricter than the firm; never weaken without approval
   daily_loss_stop_fraction: 0.5      # stop for the day at 50% of the daily loss limit
@@ -140,3 +141,23 @@ setups:
   min_rr: 2.0
   entry_expiry_bars: 6           # unfilled limit orders expire after N setup-timeframe bars
   require_htf_alignment: true    # applies to ob_retest
+  min_minutes_to_session_end: 15 # confirmed by Rald: reject setups armed with less time than this left
+
+# Backtest (Phase 3). Same risk/prop code as live; these are only the simulation knobs.
+backtest:
+  start: "2019-01-01"
+  end: null                      # null = all data
+  spread_stress_mult: 2.0        # second run with 2x spread
+  stop_slippage_points: 1.0      # stop fills this many points worse
+  commission_per_lot: 0.0        # $ round turn per 1.0 lot
+  one_position_at_a_time: true   # a new signal is blocked while an order/position is live
+  news_exit: flatten_before      # close positions / cancel orders 1 min before a blackout starts
+  reset_on_halt: true            # after a max-drawdown halt or breach, start a fresh account (logged)
+
+# Equity Edge 2-Step challenge, used by the Monte Carlo pass-rate simulation
+challenge:
+  phase_targets_pct: [8.0, 5.0]
+  min_trading_days: 2
+  max_days_per_phase: 250        # simulation horizon (the firm has no time limit)
+  n_simulations: 10000
+  seed: 7

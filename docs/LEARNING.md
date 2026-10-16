@@ -139,3 +139,39 @@ Dukascopy US100 history (2019-01 to 2026-10, 2.66M clean 1-minute bars).
   specified. Do not loosen filters to get more trades; that is how you overfit.
 - **Setups armed at the very end of a session** (16 of 145 have 5 minutes or less to fill) can
   barely fill. This is a rule question for Rald, not something to patch silently.
+
+## Phase 3: Backtester and prop rules
+
+**What was built**
+- `src/risk/sizing.py`: lots = (initial balance × 0.5%) / (stop points × $ per point), rounded
+  **down** to 0.01. If even 0.01 lots risks too much, the signal is blocked. It is never rounded up.
+- `src/risk/guard.py`: the hard gate every signal passes, in the backtest now and live later. It
+  lists *every* reason a signal is blocked: news, session, daily buffer, drawdown halt, signal caps,
+  2 losses in a row, an open position, sizing, "a full loss could breach a firm limit", and later
+  model confidence.
+- `src/backtest/fills.py`: replays each order on 1-minute bars.
+- `src/backtest/engine.py`: a **raw** run (every valid setup, costs only) and a **guarded** run
+  (one account, all rules, exactly as live).
+- `src/backtest/montecarlo.py`: the chance of passing the 2-Step challenge.
+- `uv run python -m src.cli backtest run` writes `reports/backtest_latest.html`, plus trades, blocks
+  and events CSVs in `reports/backtest/`.
+
+**Key concepts**
+- **R (risk multiple):** profit divided by what you planned to risk. +2R means you made twice your
+  risk; -1R means a normal stop-out. Working in R makes results independent of account size and
+  lot value.
+- **Expectancy:** the average R per trade. If it is above 0 after costs, the setup makes money on
+  average. One good year doesn't prove it. Look at the **t-stat** too: below about 2, the result can't be
+  told apart from luck.
+- **Bid/ask:** the data is the *bid* price. Buying costs the *ask* (bid + spread), so a buy-limit
+  only fills when the ask reaches it, and a short is stopped when the ask hits the stop.
+- **Pessimistic fills:** one minute bar only gives open/high/low/close, not the order inside it.
+  When the stop and target are both inside one bar, we assume the stop came first. The backtest
+  should be harder than reality, not easier.
+- **News rule:** Equity Edge forbids opening *or closing* trades inside the news window. The
+  backtest therefore closes positions and cancels orders 1 minute before a window starts.
+- **Monte Carlo:** we replay random sequences of real historical days thousands of times and
+  count how often the account reaches +8% (then +5%) before hitting a limit. It is only as good as
+  the trades it samples.
+- **The gate:** ML can filter a real edge, but it can't create one. If the raw setups lose
+  money, a model trained on them mostly learns noise. That is why we stop here and decide together.

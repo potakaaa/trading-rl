@@ -28,3 +28,9 @@ dashboard/.env*
 # Generated from synthetic data (dev only) and generated charts
 reports/*SYNTHETIC*
 reports/samples/
+.agents/
+.claude/
+skills-lock.json
+.apex/
+reports/*.html
+reports/backtest/

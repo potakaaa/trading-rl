@@ -91,3 +91,9 @@ def session_of(idx: pd.DatetimeIndex, sessions: dict, tz: str = NY) -> pd.Series
         end = win.end if hasattr(win, "end") else win["end"]
         out[in_window(idx, start, end, tz)] = name
     return out
+
+
+def session_end_utc(t: pd.Timestamp, session_end: str, tz: str = NY) -> pd.Timestamp:
+    """UTC timestamp of `session_end` (NY wall time) on the NY calendar day of t (DST-safe)."""
+    day = pd.Timestamp(t).tz_convert(tz).tz_localize(None).normalize()
+    return (day + pd.Timedelta(minutes=hhmm_minutes(session_end))).tz_localize(tz).tz_convert("UTC")

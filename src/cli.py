@@ -7,6 +7,7 @@
     uv run python -m src.cli news check-live
     uv run python -m src.cli news build-history
     uv run python -m src.cli charts sample [--n 20] [--seed 1]
+    uv run python -m src.cli backtest run
 """
 from __future__ import annotations
 
@@ -84,6 +85,14 @@ def cmd_charts_sample(s, a):
     print(f"wrote {len(paths)} charts to {paths[0].parent if paths else '-'}")
 
 
+def cmd_backtest_run(s, a):
+    from src.backtest.runner import run
+    r = run(s)
+    print(json.dumps({"gate": r["gate"], "raw": r["raw_summary"], "raw_2x_spread": r["raw_stress_summary"],
+                      "guarded": r["guarded_summary"],
+                      "p_pass_both_phases": r["mc"]["p_pass_all"]}, indent=1, default=float))
+
+
 def main(argv=None):
     load_dotenv(PROJECT_ROOT / ".env")
     p = argparse.ArgumentParser(prog="src.cli")
@@ -113,6 +122,9 @@ def main(argv=None):
     x.add_argument("--seed", type=int, default=1)
     x.add_argument("--synthetic", action="store_true", help="use a synthetic series (dev only)")
     x.set_defaults(fn=cmd_charts_sample)
+
+    b = sub.add_parser("backtest").add_subparsers(dest="cmd", required=True)
+    b.add_parser("run").set_defaults(fn=cmd_backtest_run)
 
     a = p.parse_args(argv)
     return a.fn(load_settings(), a) or 0

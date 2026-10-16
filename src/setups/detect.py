@@ -30,7 +30,7 @@ from src.features.structure import (
     htf_bias_series,
     pd_position,
 )
-from src.timeutils import NY, TF_MINUTES, hhmm_minutes, session_of, trading_date
+from src.timeutils import TF_MINUTES, session_end_utc, session_of, trading_date
 
 SETUP_COLUMNS = [
     "setup_type", "direction", "status", "session", "armed_idx", "armed_at", "expires_at",
@@ -59,8 +59,7 @@ class Detections:
 
 
 def _session_end_utc(t: pd.Timestamp, session_end: str) -> pd.Timestamp:
-    day = t.tz_convert(NY).tz_localize(None).normalize()
-    return (day + pd.Timedelta(minutes=hhmm_minutes(session_end))).tz_localize(NY).tz_convert("UTC")
+    return session_end_utc(t, session_end)
 
 
 def detect_all(bars: pd.DataFrame, htf: dict[str, pd.DataFrame], settings: Settings) -> Detections:
@@ -207,6 +206,9 @@ def _validate(row: dict, short: bool, entry: float, stop: float, armed: int, arm
     cfg = settings.setups
     if row["session"] is None:
         return "armed_outside_session"
+    s_end = _session_end_utc(armed_at, settings.sessions[row["session"]].end)
+    if s_end - armed_at < pd.Timedelta(minutes=cfg.min_minutes_to_session_end):
+        return "too_close_to_session_end"
     if (short and stop <= entry) or (not short and stop >= entry):
         return "bad_stop"
     pdc = settings.detectors.premium_discount

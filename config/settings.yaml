@@ -1,0 +1,46 @@
+# All tunable values live here. Nothing is hard-coded in src/.
+# Values marked TODO(Rald) are null on purpose: the system refuses to run until they are filled in.
+
+instrument:
+  name: US100
+  dukascopy_symbol: USATECHIDXUSD
+  oanda_symbol: NAS100_USD
+
+timezones:
+  market: America/New_York
+  display: Asia/Manila
+
+sessions:            # New York time
+  ny_am: { start: "09:30", end: "11:30" }
+  ny_pm: { start: "13:30", end: "16:00" }
+
+account:
+  prop_firm: Equity Edge
+  plan: 2-Step
+  initial_balance: null        # TODO(Rald): e.g. 10000 / 25000 / 50000 / 100000
+  risk_per_trade_pct: 0.5
+  daily_loss_limit_pct: null   # TODO(Rald): from Equity Edge dashboard
+  max_drawdown_pct: null       # TODO(Rald): static drawdown, from Equity Edge dashboard
+
+news:
+  currency: USD
+  impact: High
+  blackout_minutes_before: null  # TODO(Rald): from Equity Edge rules
+  blackout_minutes_after: null   # TODO(Rald): from Equity Edge rules
+  refresh_minutes: 30
+  live_feed_url: https://nfs.faireconomy.media/ff_calendar_thisweek.json
+
+broker:
+  lot_value_per_point: null    # TODO(Rald): $ per 1.0 point move, 1 lot US100 on Match-Trader
+  lot_step: 0.01
+  typical_spread_points: null  # TODO(Rald): US100 spread during NY session
+  price_offset: 0.0            # broker price minus feed price, adjustable in dashboard
+
+internal_buffers:              # stricter than the firm; never weaken without approval
+  daily_loss_stop_fraction: 0.5      # stop for the day at 50% of the daily loss limit
+  max_drawdown_stop_fraction: 0.7    # stop entirely at 70% of max drawdown until manual reset
+  max_signals_per_session: 2
+  max_signals_per_day: 3
+  max_consecutive_losses: 2
+
+# Detector, backtest and ML parameters are added in the phases that need them.

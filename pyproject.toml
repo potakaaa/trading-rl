@@ -1,0 +1,30 @@
+[project]
+name = "ict-signal-assistant"
+version = "0.1.0"
+description = "ICT + ML trading signal assistant for US100 (signals only, prop-firm safe)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas",
+    "numpy",
+    "pyarrow",
+    "lightgbm",
+    "scikit-learn",
+    "pydantic>=2",
+    "pyyaml",
+    "python-dotenv",
+    "fastapi",
+    "uvicorn[standard]",
+    "apscheduler",
+    "httpx",
+]
+
+[dependency-groups]
+dev = ["pytest", "ruff"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100

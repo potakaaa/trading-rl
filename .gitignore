@@ -1,0 +1,26 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Secrets
+.env
+
+# Data & artifacts
+data/*
+!data/.gitkeep
+*.db
+*.sqlite
+models/
+
+# Node / dashboard
+node_modules/
+.next/
+dashboard/.env*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

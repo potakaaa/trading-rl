@@ -108,12 +108,15 @@ detectors:
     overnight: { start: "18:00", end: "09:30" }   # NY time
     equal_level_atr: 0.10        # swings within 0.10 x ATR count as equal highs/lows
     equal_lookback_swings: 10    # compare against the last N confirmed swings
+    equal_max_age_hours: 24      # equal highs/lows stop counting as liquidity after this
   sweep:
     min_sweep_atr: 0.05          # must trade beyond the level by >= 0.05 x ATR
-    reclaim_bars: 3              # and close back inside within K bars
+    reclaim_bars: 3              # and close back inside within K bars after the penetration bar
   mss:
     disp_mult: 1.0               # displacement candle body >= 1.0 x ATR(14)
     max_bars_after_sweep: 12     # MSS must happen within this many bars of the sweep
+    # bias = daily BOS direction + 4h BOS direction + (price vs previous-day midpoint), each +1/-1;
+    # bullish if total >= bias_threshold, bearish if <= -bias_threshold, else neutral
   fvg:
     min_fvg_atr: 0.10
   order_block:
@@ -125,10 +128,14 @@ detectors:
   htf_bias:
     timeframes: ["1d", "4h"]
     use_prev_day_midpoint: true
+    bias_threshold: 2
 
 setups:
   enabled: ["sweep_mss_fvg", "ob_retest"]
   entry_mode: ce                 # fvg_start | ce (50% consequent encroachment)
+  ob_entry: edge                 # edge (first touch of the OB zone) | mid
+  target_mode: nearest           # nearest = nearest opposing pool, skip if R:R < min_rr
+                                 # first_meeting_min_rr = nearest pool that gives >= min_rr
   stop_buffer_atr: 0.10          # stop placed this far beyond the sweep extreme
   min_rr: 2.0
   entry_expiry_bars: 6           # unfilled limit orders expire after N setup-timeframe bars

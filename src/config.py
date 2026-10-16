@@ -147,6 +147,7 @@ class Liquidity(BaseModel):
     overnight: TimeWindow
     equal_level_atr: float
     equal_lookback_swings: int
+    equal_max_age_hours: float
 
 
 class Sweep(BaseModel):
@@ -176,6 +177,7 @@ class PremiumDiscount(BaseModel):
 class HtfBias(BaseModel):
     timeframes: list[str]
     use_prev_day_midpoint: bool
+    bias_threshold: int
 
 
 class Detectors(BaseModel):
@@ -194,6 +196,8 @@ class Detectors(BaseModel):
 class Setups(BaseModel):
     enabled: list[str]
     entry_mode: Literal["fvg_start", "ce"]
+    ob_entry: Literal["edge", "mid"]
+    target_mode: Literal["nearest", "first_meeting_min_rr"]
     stop_buffer_atr: float
     min_rr: float
     entry_expiry_bars: int

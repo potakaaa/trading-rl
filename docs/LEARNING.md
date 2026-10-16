@@ -15,3 +15,108 @@
   spread) are `null`. `Settings.require_complete()` raises until they are filled in, so the system
   can never silently run with a guessed prop-firm rule.
 - **Secrets:** API tokens go in `.env`, which is gitignored. `.env.example` shows the shape.
+
+## Phase 1: Data
+
+**What was built:** a downloader for 7+ years of US100 1-minute history, a cleaning step, a
+resampler that builds 5m/15m/1h/4h/daily bars, a data quality report, a live price connection
+(OANDA), a live economic calendar (ForexFactory) and a historical news dataset for backtests.
+
+**Key concepts**
+- **OHLC bars.** A 1-minute bar is the open/high/low/close of every price in that minute. We
+  use the **bid** price, which matches what Dukascopy and OANDA publish most consistently.
+- **Parquet** is a file format for tables (like a compressed CSV that remembers column types).
+  It loads in a fraction of a second where CSV would take minutes. Raw data is stored one file
+  per month (`data/raw/.../2024/2024-03.parquet`) with a small `manifest.json` that records
+  which days downloaded. That is how `data download` knows what to skip when you re-run it.
+- **UTC storage, New York logic.** Every timestamp is stored in UTC (no daylight saving).
+  Session rules use New York *wall-clock* time, so 09:30 NY is 14:30 UTC in winter and
+  13:30 UTC in summer automatically. The tests check both DST switches (March and November).
+  The report has a "DST check" table so you can see it on real data.
+- **Trading day = 18:00 to 17:00 NY.** US index CFDs follow the futures clock: the day opens
+  Sunday/weekday 18:00 NY and closes 17:00 NY. Daily bars and "previous day high/low" use this
+  definition. 4h bars start at 18:00, 22:00, 02:00, 06:00, 10:00 and 14:00.
+- **Bar `end` time = no lookahead for higher timeframes.** A 1h bar labelled 10:00 is not
+  finished until 11:00. Every resampled bar has an `end` column, and code may only use a bar
+  once `end` has passed. Using the 10:00 hourly close at 10:15 would mean peeking at the future
+  (**lookahead bias**). That makes backtests look far better than reality.
+- **Cleaning without inventing data.** We drop duplicates, impossible bars, bars outside
+  market hours and Dukascopy "filler" bars (flat, zero volume). Bad-tick wicks (a spike far
+  bigger than normal that immediately reverses) are clipped. We never fill gaps: a made-up
+  price could create a fake setup. Gaps are listed in the report instead.
+- **Price divisor sanity check.** Dukascopy stores prices as integers. If the divisor in
+  settings were wrong, every price would be 1000x off. The build refuses to continue if the
+  median price is outside a plausible range.
+- **REST vs streaming (OANDA).** REST is "ask for candles, get an answer". Streaming keeps one
+  connection open and the server pushes every price change plus a heartbeat every few seconds.
+  The heartbeat is how we can tell "quiet market" from "connection dead".
+- **Mocked tests.** The cloud machine I build on can't reach Dukascopy/OANDA/ForexFactory, so
+  the tests use `httpx.MockTransport`: a fake server that returns prepared responses (like
+  mocking `fetch` in Jest). Your Mac run of the commands in the README is the real check.
+
+**News data: which sources and why**
+- *Live:* ForexFactory's weekly JSON feed, filtered to USD + High impact, refreshed every 30
+  minutes. Every successful download is archived to `data/news/ff_archive/`, so over time we
+  build our own exact record of what the live system saw.
+- *Historical:* there is no free, complete, official archive of the ForexFactory calendar, so
+  the history is assembled from official sources:
+  1. **FRED/ALFRED (St. Louis Fed)** release dates for CPI, NFP, PPI, GDP, Retail Sales, Jobless
+     Claims, PCE and JOLTS. These are the *actual* publication dates, including shifted ones
+     (e.g. government shutdowns). Needs a free API key.
+  2. **Federal Reserve FOMC calendar pages** for rate decisions (14:00) and press conferences (14:30).
+  3. **ISM PMIs** by ISM's published rule (1st/3rd business day, 10:00), marked as rule-based.
+  4. A **manual CSV** (`data/news/manual_events.csv`, columns `ts_ny,title`) for anything else.
+     Fed Chair speeches are the known gap; add the important ones there.
+  Treating all of these as "high impact" is deliberately conservative: more blackout, not less.
+- **Fail-safe:** if the live feed fails or its data is older than `stale_after_minutes`
+  (120), the news status becomes "unavailable" and the risk engine will block all signals.
+
+## Phase 2: ICT detectors
+
+**What was built:** every concept from the spec as a deterministic rule (`src/features/`),
+the two v1 setups (`src/setups/detect.py`), 23 detector tests, and a chart tool that
+draws everything on sample days for you to check.
+
+**The one rule behind everything: `known_at`.** Every detection records the earliest moment it
+could have been known live. Example: a swing high with N=2 needs two lower bars *after* it, so
+it is only known when the second of those bars closes. Code may only use a detection after its
+`known_at`. The backtest and the live engine call the same `detect_all()` function, so they can't
+drift apart.
+
+**How lookahead is tested.** The strongest test is simple: run the detectors on the full history,
+then again on history that *stops* at time T. Everything known by T must be identical in both
+runs. If any result changes when you add future data, the code was peeking. A second test cuts
+the data exactly at each setup's arming time (the setup must already exist) and one bar earlier
+(it must not exist yet). These tests caught two real bugs while I was building:
+1. Merging two sweeps that happen close together. A later sweep was changing an earlier event,
+   so merging now happens only at the MSS candle, when both are already known.
+2. Choosing an FVG that only finishes forming on the bar *after* the MSS. A live run would have
+   chosen differently from the backtest, so the rule now decides with what exists at the MSS
+   close and only waits one bar if there is no FVG yet.
+
+**Exact rules (all numbers live in `settings.yaml` under `detectors:` and `setups:`)**
+| Concept | Rule (defaults) |
+|---|---|
+| ATR | Wilder ATR(14) on the setup timeframe (5m) |
+| Swing | fractal pivot, N bars each side (5m N=2, 15m/1h N=3, 4h/1d N=2); confirmed N bars later |
+| Liquidity | PDH/PDL (prev 18:00-17:00 day), Asia 20:00-00:00, London 02:00-05:00, overnight 18:00-09:30 high/low (known when the window ends), equal highs/lows = two swings within 0.10xATR with nothing beyond in between (valid 24h) |
+| Sweep | trades >= 0.05xATR beyond the level (or closes beyond it), then closes back inside within 3 bars; one sweep per level |
+| MSS | after a sweep inside a session: within 12 bars, a candle *closes* beyond the latest confirmed opposing swing (formed before the sweep) with body >= 1.0xATR. Stops if price closes back beyond the swept level |
+| FVG | 3-candle gap >= 0.10xATR |
+| Order block | last opposite-coloured candle at/before the sweep extreme (max 10 bars back); zone open-to-high (bear) / low-to-open (bull) |
+| Premium/discount | position of the entry inside the latest confirmed 15m swing high/low range; shorts > 0.5, longs < 0.5 |
+| HTF bias | daily BOS direction + 4h BOS direction + (price vs previous-day midpoint), each +1/-1; bullish if total >= 2, bearish if <= -2, else neutral |
+| Setup 1 | sweep -> MSS -> limit at FVG 50% (CE) |
+| Setup 2 | sweep -> MSS -> limit at OB edge, only with matching HTF bias |
+| Both | stop = sweep extreme +/- 0.10xATR; target = nearest untouched opposing liquidity pool; reject if R:R < 2.0; expire after 6 bars (30 min) or at session end; premium/discount filter on both |
+
+Every candidate setup is kept with either `valid` or the reason it was rejected
+(`wrong_premium_discount`, `htf_bias_not_aligned`, `rr_below_min`, `no_target`, ...). The charts
+show the rejected ones as dotted lines so you can judge the filters too.
+
+**How to read the sample charts:** x-axis is New York time (hover a candle for Manila time).
+Orange dashed = buy-side liquidity (highs), blue dashed = sell-side (lows), dotted = equal
+highs/lows; a line ends where the level was taken. Orange X = sweep, white line = the swing
+the MSS closed through, purple box = order block, green/red boxes = bullish/bearish FVGs,
+blue/red/green lines = entry/stop/target of a setup. The setup list is under the chart.
+Click legend items to hide layers.

@@ -40,6 +40,12 @@ FIVE = pd.Timedelta(minutes=5)
 ONE = pd.Timedelta(minutes=1)
 
 
+def empty_m1() -> pd.DataFrame:
+    """Empty 1m frame with a UTC DatetimeIndex (so time comparisons work before any data arrives)."""
+    return pd.DataFrame({c: pd.Series(dtype="float64") for c in ("open", "high", "low", "close", "volume")},
+                        index=pd.DatetimeIndex([], tz="UTC", name="ts"))
+
+
 def trading_day_start_utc(t: pd.Timestamp, day_start: str) -> pd.Timestamp:
     """UTC start (e.g. 18:00 NY the previous evening) of the trading day containing t."""
     td = trading_date(pd.DatetimeIndex([pd.Timestamp(t)]), day_start)[0]
@@ -69,7 +75,7 @@ class LiveEngine:
         self._load_hist = history_loader or self._load_from_store
         self.listeners: list[Callable[[str, dict], None]] = []
         self.hist: dict[str, pd.DataFrame] = {}
-        self.m1 = pd.DataFrame()
+        self.m1 = empty_m1()
         self.last_bar: pd.Timestamp | None = None        # start time of the newest 1m bar
         self.last_close_processed: pd.Timestamp | None = None
         self.feed_ok, self.feed_error, self.feed_lag = True, None, None
@@ -134,8 +140,7 @@ class LiveEngine:
         if len(fresh):
             fresh, _ = clean_m1(fresh, self.s)
         parts = [p for p in (stored, fresh) if len(p)]
-        self.m1 = pd.concat(parts).sort_index() if parts else pd.DataFrame(columns=["open", "high", "low", "close",
-                                                                                   "volume"])
+        self.m1 = pd.concat(parts).sort_index() if parts else empty_m1()
         self.m1 = self.m1[~self.m1.index.duplicated(keep="last")]
         self.last_bar = self.m1.index[-1] if len(self.m1) else None
         # only the newest completed 5m bar may still produce a signal after a (re)start

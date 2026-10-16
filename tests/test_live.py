@@ -356,3 +356,17 @@ def test_setup_seen_late_after_outage_is_blocked(settings, synthetic, tmp_path):
     blocks = eng.store.blocks()
     assert any(any(r.startswith("late_data") for r in b["reasons"]) for b in blocks), blocks
     assert not eng.store.signals(10)        # the 10:05 setup must not become a signal
+
+
+def test_api_before_bootstrap_does_not_crash(settings, synthetic, tmp_path):
+    """The dashboard may call the API while the engine is still loading history."""
+    from fastapi.testclient import TestClient
+
+    from src.api.app import create_app
+    eng = _engine_for(settings, synthetic, tmp_path)          # NOT bootstrapped
+    with TestClient(create_app(settings, eng, run_engine=False)) as c:
+        for path in ("/api/status", "/api/bars?tf=1m", "/api/bars?tf=5m", "/api/bars?tf=15m", "/api/overlays",
+                     "/api/signals", "/api/blocks", "/api/news", "/api/journal"):
+            r = c.get(path)
+            assert r.status_code == 200, (path, r.text[:200])
+        assert c.get("/api/bars?tf=5m").json()["bars"] == []

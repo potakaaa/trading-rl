@@ -74,8 +74,20 @@ data:
   sanity_price_range: [3000, 60000]
 
 live:
-  provider: oanda
-  heartbeat_seconds: 60
+  provider: dukascopy_live       # dukascopy_live (default, same feed as history) | oanda (not available to Rald)
+  mode: paper                    # paper = every signal is unproven; never switched to live automatically
+  state_source: paper            # account state for the guard: paper (simulated outcomes) | journal (Rald's fills)
+  poll_seconds: 15
+  heartbeat_seconds: 60          # alert if no new 1m bar for this long (+30 s normal feed lag) in a session
+  lookback_days: { "5m": 30, "15m": 60, "1h": 120, "4h": 400, "1d": 3000 }
+  db_path: data/live/live.db
+  api_host: 127.0.0.1
+  api_port: 8000
+  dukascopy_live:
+    url: https://freeserv.dukascopy.com/2.0/
+    instrument: USATECH.IDX/USD  # unofficial public chart endpoint; verified identical to the history feed
+    timeout_seconds: 15
+    max_bars_per_request: 5000
   oanda:
     practice_rest_url: https://api-fxpractice.oanda.com
     practice_stream_url: https://stream-fxpractice.oanda.com

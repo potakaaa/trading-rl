@@ -200,3 +200,69 @@ it made **-0.11 R per trade** over 17 trades (win rate 35%, t-stat -0.40). In-sa
 sample. Every variant shown so far fails that test, so the honest conclusion is that **these ICT rules,
 as defined, show no reliable edge on US100**. The holdout is now spent. A new idea must prove
 itself on new data (paper trading) before real money.
+
+## Phase 5: Live engine and alerts (paper only)
+
+**What was built**
+- `src/data/dukascopy_live.py`: live 1-minute bars from Dukascopy's public chart endpoint. It is
+  the **same feed as our history**: a check matched 120 stored bars exactly (0.0 difference,
+  including volume). New bars arrive about 10-20 s after each minute closes.
+- `src/live/engine.py`: every 15 s it fetches new bars, tracks open paper signals, and on every
+  completed 5-minute bar inside a session runs **the same** `detect_all` and `guard.evaluate` as
+  the backtest.
+- `src/live/store.py`: SQLite at `data/live/live.db` holding signals, every block with its reasons
+  (your compliance record), alerts and settings.
+- `src/alerts/notify.py`: Telegram and Discord. A missing key is skipped, and a failing alert
+  never crashes the engine.
+- `src/api/app.py`: FastAPI REST + WebSocket (contract in `docs/API.md`).
+- One command starts it all: `uv run python -m src.cli live run`.
+
+**Key concepts**
+- **Parity:** "backtest and live use the same code" is tested, not assumed. `tests/test_live.py`
+  replays days minute by minute through the live engine and checks that it proposes exactly the
+  setups the backtest found, at the same time and price. Three real 2023 days also matched.
+- **Fail safe:** if the feed errors or goes quiet for more than 90 s in a session, the status is NO-DATA and
+  there are no signals, plus an alert. If news can't be loaded or is older than 2 h: NO-NEWS, no signals.
+- **Paper mode:** every signal is labelled unproven. The engine simulates each signal's fill and
+  exit with the backtest's fill rules, and those paper results drive the account state by default
+  (`live.state_source: paper`). Switch to `journal` to use only the trades you mark as taken.
+- **Restarts are safe:** account state is rebuilt from the database on every decision, so a
+  restart neither forgets today's losses nor invents trades.
+
+**Keeping the Mac awake:** `live run` starts `caffeinate -i`, which stops idle sleep while the
+engine runs. **Closing the lid still sleeps a MacBook.** Keep it plugged in and open, and in
+System Settings > Battery > Options turn on "Prevent automatic sleeping when the display is off".
+Check with `pmset -g` (look for `sleep 0`).
+
+### Telegram bot setup
+1. In Telegram, open a chat with **@BotFather** and send `/newbot`. Pick a name and a username
+   ending in `bot`.
+2. BotFather replies with a token like `123456:ABC...`. Put it in `.env` as `TELEGRAM_BOT_TOKEN=`.
+3. Send any message to your new bot, then open
+   `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser and copy `"chat":{"id":...}`
+   into `.env` as `TELEGRAM_CHAT_ID=`.
+4. Restart `live run`. The startup checklist shows `[OK] Telegram alerts`.
+
+### Discord webhook setup
+1. In your Discord server: channel settings (gear) > Integrations > Webhooks > New Webhook.
+2. Copy the webhook URL into `.env` as `DISCORD_WEBHOOK_URL=`, then restart `live run`.
+
+Never commit `.env` (it is gitignored). Anyone with the token or webhook URL can post as your bot.
+
+## Phase 6: Dashboard
+
+`cd dashboard && npm install && npm run dev`, then open http://localhost:3000 with the backend
+running. It shows the chart (1m/5m/15m with liquidity, FVG, OB, sweep and MSS overlays), the
+signal panel (Taken / Skipped plus a fill and exit form), the risk panel, news in New York and Manila
+time, today's blocks, plus Backtest, Journal and Settings pages.
+
+## Phase 7: Paper trading
+
+Run `live run` during NY sessions for **at least 4 weeks**. Every Friday after the close the engine
+writes `reports/paper_latest.html` and sends a summary alert. You can also run
+`uv run python -m src.cli live paper-report` at any time.
+
+**How drift is judged:** if paper trades behave like the backtest, the average R of n trades should
+land within ±2 × (backtest spread of R) / √n of the backtest average about 95% of the time. Outside
+that band = DRIFT, meaning live differs from what we tested. With about 0.5 signals per week, 4 weeks
+gives only a few trades. That is too few to prove anything either way, which is why the verdict says so.

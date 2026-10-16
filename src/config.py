@@ -114,9 +114,24 @@ class Oanda(BaseModel):
     price_component: str
 
 
+class DukascopyLive(BaseModel):
+    url: str
+    instrument: str
+    timeout_seconds: float
+    max_bars_per_request: int
+
+
 class Live(BaseModel):
     provider: str
+    mode: Literal["paper", "live"] = "paper"
+    state_source: Literal["paper", "journal"] = "paper"
+    poll_seconds: int = 15
     heartbeat_seconds: int
+    lookback_days: dict[str, int]
+    db_path: str
+    api_host: str
+    api_port: int
+    dukascopy_live: DukascopyLive
     oanda: Oanda
 
 

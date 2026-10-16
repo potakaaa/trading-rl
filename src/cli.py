@@ -9,6 +9,9 @@
     uv run python -m src.cli charts sample [--n 20] [--seed 1]
     uv run python -m src.cli backtest run
     uv run python -m src.cli backtest research
+    uv run python -m src.cli live run            # API + live paper engine (one command)
+    uv run python -m src.cli live check-feed
+    uv run python -m src.cli live paper-report   # Phase 7: paper vs backtest
 """
 from __future__ import annotations
 
@@ -101,6 +104,72 @@ def cmd_research_run(s, a):
         print(t.drop(columns="overrides").round(3).to_string())
 
 
+def build_engine(s):
+    from src.alerts.notify import Notifier
+    from src.data.dukascopy_live import DukascopyLiveProvider
+    from src.live.engine import LiveEngine, default_db_path
+    from src.live.store import Store
+    from src.news.calendar import LiveNewsCalendar
+    from src.news.forexfactory import ForexFactoryProvider
+    if s.live.provider != "dukascopy_live":
+        raise SystemExit(f"live.provider={s.live.provider} is not wired; use dukascopy_live")
+    return LiveEngine(s, DukascopyLiveProvider(s), LiveNewsCalendar(ForexFactoryProvider(s), s),
+                      Store(default_db_path(s)), Notifier())
+
+
+def cmd_live_run(s, a):
+    import os
+    import platform
+    import subprocess
+
+    import uvicorn
+
+    from src.api.app import create_app
+    from src.live.checklist import format_checklist, run_checklist
+    if a.port:
+        s.live.api_port = a.port
+    print("Startup checklist:\n" + format_checklist(run_checklist(s)))
+    if s.live.mode != "paper":
+        print("\n!! live.mode is not 'paper'. Only Rald may change this, after paper results justify it.")
+    if platform.system() == "Darwin" and not a.no_caffeinate:
+        # keep the Mac awake (idle sleep) for as long as this process lives
+        subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())])
+        print("  caffeinate: idle sleep disabled while the engine runs (closing the lid still sleeps the Mac)")
+    engine = build_engine(s)
+    app = create_app(s, engine)
+    print(f"\nAPI + live engine on http://{s.live.api_host}:{s.live.api_port}"
+          "  (dashboard: cd dashboard && npm run dev)")
+    uvicorn.run(app, host=s.live.api_host, port=s.live.api_port, log_level="info")
+
+
+def cmd_live_check_feed(s, a):
+    import pandas as pd
+
+    from src.data.dukascopy_live import DukascopyLiveProvider, FeedError
+    now = pd.Timestamp.now(tz="UTC")
+    try:
+        df = DukascopyLiveProvider(s).fetch_before(now, 5)
+    except FeedError as e:
+        print(f"FEED FAILED: {e}")
+        return 1
+    if df.empty:
+        print("feed reachable but returned no bars (market closed?)")
+        return 1
+    last = df.index[-1]
+    print(f"OK: newest completed 1m bar {last} close {df['close'].iloc[-1]:.2f}; "
+          f"lag {(now - last - pd.Timedelta(minutes=1)).total_seconds():.0f}s after bar close")
+
+
+def cmd_live_paper_report(s, a):
+    from src.live.engine import default_db_path
+    from src.live.paper_report import compare, write_html
+    from src.live.store import Store
+    res = compare(Store(default_db_path(s)), s)
+    write_html(res, PROJECT_ROOT / "reports" / "paper_latest.html")
+    print(json.dumps({k: v for k, v in res.items() if k != "weeks"}, indent=1, default=float))
+    print(f"report: {PROJECT_ROOT / 'reports' / 'paper_latest.html'}")
+
+
 def main(argv=None):
     load_dotenv(PROJECT_ROOT / ".env")
     p = argparse.ArgumentParser(prog="src.cli")
@@ -134,6 +203,14 @@ def main(argv=None):
     b = sub.add_parser("backtest").add_subparsers(dest="cmd", required=True)
     b.add_parser("run").set_defaults(fn=cmd_backtest_run)
     b.add_parser("research").set_defaults(fn=cmd_research_run)
+
+    lv = sub.add_parser("live").add_subparsers(dest="cmd", required=True)
+    x = lv.add_parser("run")
+    x.add_argument("--no-caffeinate", action="store_true")
+    x.add_argument("--port", type=int, help="override live.api_port")
+    x.set_defaults(fn=cmd_live_run)
+    lv.add_parser("check-feed").set_defaults(fn=cmd_live_check_feed)
+    lv.add_parser("paper-report").set_defaults(fn=cmd_live_paper_report)
 
     a = p.parse_args(argv)
     return a.fn(load_settings(), a) or 0

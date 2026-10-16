@@ -175,3 +175,21 @@ Dukascopy US100 history (2019-01 to 2026-10, 2.66M clean 1-minute bars).
   the trades it samples.
 - **The gate:** ML can filter a real edge, but it can't create one. If the raw setups lose
   money, a model trained on them mostly learns noise. That is why we stop here and decide together.
+
+## Phase 3b: Rule research with a locked holdout
+
+**Why a holdout:** if you try many rule variants on the same data and keep the best one, you
+have mostly found the luckiest one. So 2025-01-01 onward is **locked**. All research uses
+2019-2024 only, and the holdout is used **once**, on the single variant you choose. If the variant
+fails there, we don't go back and tweak it. That would turn the holdout into more training data.
+
+**Pre-registration:** the 9 variants in `settings.yaml -> research.variants` were written before
+any of them was run, and every one is reported, including the bad ones.
+
+**Your rule:** `setups.min_rr` must be >= 1.0. The config refuses to load otherwise, so no
+setting can produce a trade targeting less than 1R.
+
+**Multiple testing:** with 9 variants, one will probably look "good" by chance. A t-stat around
+1 is what luck alone looks like. We want about 2.5 or more before trusting a result.
+
+Run it with: `uv run python -m src.cli backtest research` (report: `reports/research_latest.html`).

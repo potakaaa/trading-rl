@@ -221,6 +221,11 @@ def _validate(row: dict, short: bool, entry: float, stop: float, armed: int, arm
     if row["setup_type"] == "ob_retest" and cfg.require_htf_alignment:
         if row["bias"] != ("bearish" if short else "bullish"):
             return "htf_bias_not_aligned"
+    if cfg.target_mode == "fixed_r":
+        k = cfg.fixed_target_r
+        risk = abs(entry - stop)
+        row.update(target=float(entry - k * risk if short else entry + k * risk), target_kind="fixed_r", rr=k)
+        return "rr_below_min" if k < cfg.min_rr else "valid"
     # target: opposing liquidity pools that exist and are untouched at arming time
     side = "low" if short else "high"
     lv = levels[(levels["side"] == side) & (levels["known_at"] <= armed_at) & (levels["expires_at"] > armed_at)]

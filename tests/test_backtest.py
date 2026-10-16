@@ -393,3 +393,25 @@ def test_guard_blocks_signal_just_before_blackout(settings):
     assert "news_imminent" in evaluate(sig(), st, news, settings).reasons
     news_far = BlackoutStatus(available=True, blackout=False, minutes_to_next=30.0)
     assert evaluate(sig(), st, news_far, settings).allowed
+
+
+# ------------------------------------------------------------------- research (Phase 3b)
+
+def test_min_rr_below_one_is_rejected_by_config(settings):
+    from pydantic import ValidationError
+
+    from src.backtest.research import apply_overrides
+    with pytest.raises(ValidationError):
+        apply_overrides(settings, {"setups.min_rr": 0.8})
+
+
+def test_apply_overrides_unknown_key(settings):
+    from src.backtest.research import apply_overrides
+    with pytest.raises(KeyError):
+        apply_overrides(settings, {"setups.not_a_setting": 1})
+
+
+def test_research_variants_all_valid(settings):
+    from src.backtest.research import apply_overrides
+    for name, ov in settings.research.variants.items():
+        assert apply_overrides(settings, ov).setups.min_rr >= 1.0, name

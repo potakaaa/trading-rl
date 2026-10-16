@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PATH = PROJECT_ROOT / "config" / "settings.yaml"
@@ -198,9 +198,10 @@ class Setups(BaseModel):
     enabled: list[str]
     entry_mode: Literal["fvg_start", "ce"]
     ob_entry: Literal["edge", "mid"]
-    target_mode: Literal["nearest", "first_meeting_min_rr"]
+    target_mode: Literal["nearest", "first_meeting_min_rr", "fixed_r"]
+    fixed_target_r: float = 2.0           # used when target_mode == fixed_r
     stop_buffer_atr: float
-    min_rr: float
+    min_rr: float = Field(ge=1.0)         # Rald's hard rule: never take a trade targeting < 1R
     entry_expiry_bars: int
     require_htf_alignment: bool
     min_minutes_to_session_end: int = 0
@@ -225,6 +226,11 @@ class Challenge(BaseModel):
     seed: int
 
 
+class Research(BaseModel):
+    holdout_start: str                    # data on/after this date is never used for research
+    variants: dict[str, dict[str, object]]
+
+
 class Settings(BaseModel):
     instrument: Instrument
     timezones: Timezones
@@ -239,6 +245,7 @@ class Settings(BaseModel):
     setups: Setups
     backtest: Backtest
     challenge: Challenge
+    research: Research
 
     def missing_todos(self) -> list[str]:
         required = {

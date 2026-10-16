@@ -340,3 +340,16 @@ def test_setups_appear_exactly_when_armed(settings):
         before = run(m1[m1.index < s.armed_at - pd.Timedelta(minutes=5)])
         early = before[(before.armed_idx == s.armed_idx) & (before.setup_type == s.setup_type)]
         assert early.empty, f"setup armed at {s.armed_at} visible one bar early"
+
+
+def test_fixed_r_target(settings):
+    settings.detectors.premium_discount.enabled = False
+    settings.setups.target_mode = "fixed_r"
+    settings.setups.fixed_target_r = 1.5
+    settings.setups.min_rr = 1.5
+    b = overnight_session(settings)
+    htf = {tf: resample(b.drop(columns="end"), tf) for tf in ("15m", "4h", "1d")}
+    s = detect_all(b, htf, settings).setups
+    s = s[s.setup_type == "sweep_mss_fvg"].iloc[0]
+    assert s.status == "valid" and s.target_kind == "fixed_r" and s.rr == 1.5
+    assert s.target == pytest.approx(s.entry - 1.5 * (s.stop - s.entry))

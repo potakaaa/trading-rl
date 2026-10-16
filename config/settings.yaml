@@ -137,8 +137,10 @@ setups:
   ob_entry: edge                 # edge (first touch of the OB zone) | mid
   target_mode: nearest           # nearest = nearest opposing pool, skip if R:R < min_rr
                                  # first_meeting_min_rr = nearest pool that gives >= min_rr
+                                 # fixed_r = entry +/- fixed_target_r x risk (still >= min_rr)
+  fixed_target_r: 2.0
   stop_buffer_atr: 0.10          # stop placed this far beyond the sweep extreme
-  min_rr: 2.0
+  min_rr: 2.0                    # must be >= 1.0 (Rald's rule: never target less than 1R)
   entry_expiry_bars: 6           # unfilled limit orders expire after N setup-timeframe bars
   require_htf_alignment: true    # applies to ob_retest
   min_minutes_to_session_end: 15 # confirmed by Rald: reject setups armed with less time than this left
@@ -161,3 +163,19 @@ challenge:
   max_days_per_phase: 250        # simulation horizon (the firm has no time limit)
   n_simulations: 10000
   seed: 7
+
+# Rule research (Phase 3b). Variants were fixed BEFORE looking at any results, and are judged on
+# data before holdout_start only. The holdout is used once, on the single variant Rald picks.
+research:
+  holdout_start: "2025-01-01"
+  variants:                      # name -> dotted setting overrides (applied on top of this file)
+    baseline: {}
+    min_rr_1: {setups.min_rr: 1.0}
+    fixed_2r_target: {setups.target_mode: fixed_r, setups.fixed_target_r: 2.0}
+    fixed_1_5r_target: {setups.target_mode: fixed_r, setups.fixed_target_r: 1.5, setups.min_rr: 1.5}
+    entry_fvg_start: {setups.entry_mode: fvg_start}
+    expiry_12_bars: {setups.entry_expiry_bars: 12}
+    no_premium_discount: {detectors.premium_discount.enabled: false}
+    no_htf_alignment: {setups.require_htf_alignment: false}
+    combo_fill_and_1_5r: {setups.entry_mode: fvg_start, setups.entry_expiry_bars: 12,
+                          setups.target_mode: fixed_r, setups.fixed_target_r: 1.5, setups.min_rr: 1.5}

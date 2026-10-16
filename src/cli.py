@@ -8,6 +8,7 @@
     uv run python -m src.cli news build-history
     uv run python -m src.cli charts sample [--n 20] [--seed 1]
     uv run python -m src.cli backtest run
+    uv run python -m src.cli backtest research
 """
 from __future__ import annotations
 
@@ -93,6 +94,13 @@ def cmd_backtest_run(s, a):
                       "p_pass_both_phases": r["mc"]["p_pass_all"]}, indent=1, default=float))
 
 
+def cmd_research_run(s, a):
+    from src.backtest.research import run_research
+    t = run_research(s)
+    with __import__("pandas").option_context("display.width", 200, "display.max_columns", 20):
+        print(t.drop(columns="overrides").round(3).to_string())
+
+
 def main(argv=None):
     load_dotenv(PROJECT_ROOT / ".env")
     p = argparse.ArgumentParser(prog="src.cli")
@@ -125,6 +133,7 @@ def main(argv=None):
 
     b = sub.add_parser("backtest").add_subparsers(dest="cmd", required=True)
     b.add_parser("run").set_defaults(fn=cmd_backtest_run)
+    b.add_parser("research").set_defaults(fn=cmd_research_run)
 
     a = p.parse_args(argv)
     return a.fn(load_settings(), a) or 0

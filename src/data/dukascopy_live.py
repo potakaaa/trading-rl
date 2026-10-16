@@ -45,6 +45,19 @@ class DukascopyLiveProvider(DataProvider):
     def __init__(self, settings: Settings, transport: httpx.BaseTransport | None = None):
         self.cfg = settings.live.dukascopy_live
         self._transport = transport
+        self._client: httpx.Client | None = None
+
+    def _get_client(self) -> httpx.Client:
+        # one keep-alive connection: avoids a fresh (slow, sometimes timing-out) TLS handshake per poll
+        if self._client is None:
+            self._client = httpx.Client(timeout=self.cfg.timeout_seconds, transport=self._transport,
+                                        headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.dukascopy.com/"})
+        return self._client
+
+    def close(self) -> None:
+        if self._client is not None:
+            self._client.close()
+            self._client = None
 
     def fetch_before(self, end: pd.Timestamp, limit: int) -> pd.DataFrame:
         """Up to `limit` completed 1m bars starting before `end` (UTC)."""
@@ -52,12 +65,16 @@ class DukascopyLiveProvider(DataProvider):
                   "interval": "1MIN", "splits": "true", "stocks": "true",
                   "limit": str(min(limit, self.cfg.max_bars_per_request)), "time_direction": "P",
                   "timestamp": str(int(pd.Timestamp(end).timestamp() * 1000)), "jsonp": "_cb"}
-        headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://www.dukascopy.com/"}
-        try:
-            with httpx.Client(timeout=self.cfg.timeout_seconds, transport=self._transport) as c:
-                r = c.get(self.cfg.url, params=params, headers=headers)
-        except httpx.HTTPError as e:
-            raise FeedError(f"live feed unreachable: {e}") from e
+        r, last_err = None, None
+        for _attempt in range(2):                  # one quick retry on a fresh connection
+            try:
+                r = self._get_client().get(self.cfg.url, params=params)
+                break
+            except httpx.HTTPError as e:
+                last_err = e
+                self.close()
+        if r is None:
+            raise FeedError(f"live feed unreachable: {last_err}") from last_err
         if r.status_code != 200:
             raise FeedError(f"live feed HTTP {r.status_code}")
         df = parse_jsonp(r.text)

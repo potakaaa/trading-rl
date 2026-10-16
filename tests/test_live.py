@@ -322,3 +322,17 @@ def test_news_falls_back_to_recent_archive_but_not_old_one(settings, synthetic, 
     eng2.bootstrap(ny("2024-02-14 15:00"))                      # 5 h later -> too old -> fail-safe
     assert eng2.status == "NO-NEWS"
     assert any("unavailable at startup" in e["text"] for e in eng2.store.events())
+
+
+def test_provider_retries_once_on_connection_error(settings):
+    calls = []
+
+    def handler(req):
+        calls.append(1)
+        if len(calls) == 1:
+            raise httpx.ConnectTimeout("handshake timed out")
+        return httpx.Response(200, text="_cb([[1792154340000,2,3,1,2.5,0.07]]);")
+
+    p = DukascopyLiveProvider(settings, transport=httpx.MockTransport(handler))
+    df = p.fetch_before(pd.Timestamp("2026-10-16 13:00", tz="UTC"), 5)
+    assert len(calls) == 2 and len(df) == 1

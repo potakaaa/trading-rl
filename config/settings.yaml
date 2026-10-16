@@ -16,9 +16,9 @@ sessions:            # New York time
 
 account:
   prop_firm: Equity Edge
-  plan: 2-Step
-  initial_balance: null        # TODO(Rald): e.g. 10000 / 25000 / 50000 / 100000
-  risk_per_trade_pct: 0.5
+  plan: 2-Step Swift
+  initial_balance: 2500        # confirmed by Rald
+  risk_per_trade_pct: 0.5      # = $12.50 per trade on 2,500
   daily_loss_limit_pct: null   # TODO(Rald): from Equity Edge dashboard
   max_drawdown_pct: null       # TODO(Rald): static drawdown, from Equity Edge dashboard
 
@@ -28,11 +28,65 @@ news:
   blackout_minutes_before: null  # TODO(Rald): from Equity Edge rules
   blackout_minutes_after: null   # TODO(Rald): from Equity Edge rules
   refresh_minutes: 30
+  stale_after_minutes: 120       # live feed older than this = "news unavailable" -> no signals
   live_feed_url: https://nfs.faireconomy.media/ff_calendar_thisweek.json
+  historical:
+    # Official release dates come from the St. Louis Fed (FRED/ALFRED) API (free key in .env).
+    # Times are the standard US release times (New York). All events are treated as High impact.
+    fred_api_url: https://api.stlouisfed.org/fred
+    fred_releases:             # FRED release name -> event title / NY release time
+      - { fred_name: "Consumer Price Index", title: "CPI", time: "08:30" }
+      - { fred_name: "Employment Situation", title: "Non-Farm Payrolls", time: "08:30" }
+      - { fred_name: "Producer Price Index", title: "PPI", time: "08:30" }
+      - { fred_name: "Gross Domestic Product", title: "GDP", time: "08:30" }
+      - { fred_name: "Advance Monthly Sales for Retail and Food Services", title: "Retail Sales", time: "08:30" }
+      - { fred_name: "Unemployment Insurance Weekly Claims Report", title: "Unemployment Claims", time: "08:30" }
+      - { fred_name: "Personal Income and Outlays", title: "Core PCE", time: "08:30" }
+      - { fred_name: "Job Openings and Labor Turnover Survey", title: "JOLTS", time: "10:00" }
+    fomc:
+      calendar_url: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+      historical_url_template: https://www.federalreserve.gov/monetarypolicy/fomchistorical{year}.htm
+      statement_time: "14:00"
+      press_conference_time: "14:30"
+    rule_based:                # ISM data is not on FRED; dates follow ISM's published rule
+      ism_manufacturing: { business_day: 1, time: "10:00", title: "ISM Manufacturing PMI" }
+      ism_services: { business_day: 3, time: "10:00", title: "ISM Services PMI" }
+    manual_csv: data/news/manual_events.csv   # optional extra events (e.g. Powell speeches)
+
+data:
+  root: data
+  history_start: "2019-01-01"    # 5+ years of 1-minute history
+  dukascopy:
+    base_url: https://datafeed.dukascopy.com/datafeed
+    side: BID
+    price_divisor: 1000          # raw integer price / divisor = index points (checked by sanity range)
+    max_concurrency: 4
+    retries: 4
+    timeout_seconds: 30
+  trading_day_start: "18:00"     # NY time; CFD/futures trading day starts 18:00 previous evening
+  market_close: "17:00"          # NY time; daily maintenance break 17:00-18:00
+  timeframes: ["5m", "15m", "1h", "4h", "1d"]
+  cleaning:
+    spike_range_mult: 10.0       # bar range > mult x rolling median range ...
+    spike_reversion_frac: 0.7    # ... and the wick retraces >= this fraction within the bar = bad tick
+    spike_window: 120            # bars in the rolling median
+    gap_report_minutes: 3        # gaps longer than this inside NY sessions are listed in the report
+  sanity_price_range: [3000, 60000]
+
+live:
+  provider: oanda
+  heartbeat_seconds: 60
+  oanda:
+    practice_rest_url: https://api-fxpractice.oanda.com
+    practice_stream_url: https://stream-fxpractice.oanda.com
+    live_rest_url: https://api-fxtrade.oanda.com
+    live_stream_url: https://stream-fxtrade.oanda.com
+    price_component: B           # B = bid candles (matches Dukascopy BID history)
 
 broker:
   lot_value_per_point: null    # TODO(Rald): $ per 1.0 point move, 1 lot US100 on Match-Trader
   lot_step: 0.01
+  min_lot: 0.01
   typical_spread_points: null  # TODO(Rald): US100 spread during NY session
   price_offset: 0.0            # broker price minus feed price, adjustable in dashboard
 
@@ -43,4 +97,39 @@ internal_buffers:              # stricter than the firm; never weaken without ap
   max_signals_per_day: 3
   max_consecutive_losses: 2
 
-# Detector, backtest and ML parameters are added in the phases that need them.
+# ICT detector parameters (Phase 2). Multiples of ATR use ATR(atr_period) on the same timeframe.
+detectors:
+  setup_timeframe: "5m"
+  atr_period: 14
+  swing_n: { "5m": 2, "15m": 3, "1h": 3, "4h": 2, "1d": 2 }
+  liquidity:
+    asia: { start: "20:00", end: "00:00" }        # NY time
+    london: { start: "02:00", end: "05:00" }      # NY time
+    overnight: { start: "18:00", end: "09:30" }   # NY time
+    equal_level_atr: 0.10        # swings within 0.10 x ATR count as equal highs/lows
+    equal_lookback_swings: 10    # compare against the last N confirmed swings
+  sweep:
+    min_sweep_atr: 0.05          # must trade beyond the level by >= 0.05 x ATR
+    reclaim_bars: 3              # and close back inside within K bars
+  mss:
+    disp_mult: 1.0               # displacement candle body >= 1.0 x ATR(14)
+    max_bars_after_sweep: 12     # MSS must happen within this many bars of the sweep
+  fvg:
+    min_fvg_atr: 0.10
+  order_block:
+    zone: body                   # body = open-to-low (bull) / open-to-high (bear); full = whole candle range
+    max_lookback_bars: 10
+  premium_discount:
+    enabled: true
+    range_timeframe: "15m"
+  htf_bias:
+    timeframes: ["1d", "4h"]
+    use_prev_day_midpoint: true
+
+setups:
+  enabled: ["sweep_mss_fvg", "ob_retest"]
+  entry_mode: ce                 # fvg_start | ce (50% consequent encroachment)
+  stop_buffer_atr: 0.10          # stop placed this far beyond the sweep extreme
+  min_rr: 2.0
+  entry_expiry_bars: 6           # unfilled limit orders expire after N setup-timeframe bars
+  require_htf_alignment: true    # applies to ob_retest

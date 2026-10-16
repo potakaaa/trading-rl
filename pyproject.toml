@@ -17,6 +17,7 @@ dependencies = [
     "uvicorn[standard]",
     "apscheduler",
     "httpx",
+    "plotly>=7.1.0",
 ]
 
 [dependency-groups]
@@ -27,4 +28,11 @@ testpaths = ["tests"]
 pythonpath = ["."]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["B905", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/data/quality.py" = ["E501"]  # HTML template

@@ -7,11 +7,13 @@ backtester must call it at startup (fail safe: no config, no signals).
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel
 
-DEFAULT_PATH = Path(__file__).resolve().parent.parent / "config" / "settings.yaml"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_PATH = PROJECT_ROOT / "config" / "settings.yaml"
 
 
 class Instrument(BaseModel):
@@ -39,18 +41,89 @@ class Account(BaseModel):
     max_drawdown_pct: float | None = None
 
 
+class FredRelease(BaseModel):
+    fred_name: str
+    title: str
+    time: str
+
+
+class FomcSource(BaseModel):
+    calendar_url: str
+    historical_url_template: str
+    statement_time: str
+    press_conference_time: str
+
+
+class RuleEvent(BaseModel):
+    business_day: int
+    time: str
+    title: str
+
+
+class HistoricalNews(BaseModel):
+    fred_api_url: str
+    fred_releases: list[FredRelease]
+    fomc: FomcSource
+    rule_based: dict[str, RuleEvent]
+    manual_csv: str
+
+
 class News(BaseModel):
     currency: str
     impact: str
     blackout_minutes_before: int | None = None
     blackout_minutes_after: int | None = None
     refresh_minutes: int
+    stale_after_minutes: int
     live_feed_url: str
+    historical: HistoricalNews
+
+
+class Dukascopy(BaseModel):
+    base_url: str
+    side: str
+    price_divisor: float
+    max_concurrency: int
+    retries: int
+    timeout_seconds: float
+
+
+class Cleaning(BaseModel):
+    spike_range_mult: float
+    spike_reversion_frac: float
+    spike_window: int
+    gap_report_minutes: int
+
+
+class Data(BaseModel):
+    root: str
+    history_start: str
+    dukascopy: Dukascopy
+    trading_day_start: str
+    market_close: str
+    timeframes: list[str]
+    cleaning: Cleaning
+    sanity_price_range: tuple[float, float]
+
+
+class Oanda(BaseModel):
+    practice_rest_url: str
+    practice_stream_url: str
+    live_rest_url: str
+    live_stream_url: str
+    price_component: str
+
+
+class Live(BaseModel):
+    provider: str
+    heartbeat_seconds: int
+    oanda: Oanda
 
 
 class Broker(BaseModel):
     lot_value_per_point: float | None = None
     lot_step: float
+    min_lot: float
     typical_spread_points: float | None = None
     price_offset: float = 0.0
 
@@ -63,14 +136,82 @@ class InternalBuffers(BaseModel):
     max_consecutive_losses: int
 
 
+class TimeWindow(BaseModel):
+    start: str
+    end: str
+
+
+class Liquidity(BaseModel):
+    asia: TimeWindow
+    london: TimeWindow
+    overnight: TimeWindow
+    equal_level_atr: float
+    equal_lookback_swings: int
+
+
+class Sweep(BaseModel):
+    min_sweep_atr: float
+    reclaim_bars: int
+
+
+class Mss(BaseModel):
+    disp_mult: float
+    max_bars_after_sweep: int
+
+
+class Fvg(BaseModel):
+    min_fvg_atr: float
+
+
+class OrderBlock(BaseModel):
+    zone: Literal["body", "full"]
+    max_lookback_bars: int
+
+
+class PremiumDiscount(BaseModel):
+    enabled: bool
+    range_timeframe: str
+
+
+class HtfBias(BaseModel):
+    timeframes: list[str]
+    use_prev_day_midpoint: bool
+
+
+class Detectors(BaseModel):
+    setup_timeframe: str
+    atr_period: int
+    swing_n: dict[str, int]
+    liquidity: Liquidity
+    sweep: Sweep
+    mss: Mss
+    fvg: Fvg
+    order_block: OrderBlock
+    premium_discount: PremiumDiscount
+    htf_bias: HtfBias
+
+
+class Setups(BaseModel):
+    enabled: list[str]
+    entry_mode: Literal["fvg_start", "ce"]
+    stop_buffer_atr: float
+    min_rr: float
+    entry_expiry_bars: int
+    require_htf_alignment: bool
+
+
 class Settings(BaseModel):
     instrument: Instrument
     timezones: Timezones
     sessions: dict[str, SessionWindow]
     account: Account
     news: News
+    data: Data
+    live: Live
     broker: Broker
     internal_buffers: InternalBuffers
+    detectors: Detectors
+    setups: Setups
 
     def missing_todos(self) -> list[str]:
         required = {
@@ -89,6 +230,12 @@ class Settings(BaseModel):
         if missing:
             raise ValueError("settings.yaml has unset TODO(Rald) values: " + ", ".join(missing))
         return self
+
+
+def data_dir(settings: Settings) -> Path:
+    """Absolute path of the data root (relative paths are resolved from the project root)."""
+    root = Path(settings.data.root)
+    return root if root.is_absolute() else PROJECT_ROOT / root
 
 
 def load_settings(path: Path | str = DEFAULT_PATH) -> Settings:

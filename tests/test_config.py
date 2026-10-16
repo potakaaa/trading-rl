@@ -12,6 +12,7 @@ def test_settings_file_parses():
 
 def test_unfilled_todos_fail_safe():
     s = load_settings()
-    assert "account.initial_balance" in s.missing_todos()
+    assert s.account.initial_balance == 2500
+    assert "account.daily_loss_limit_pct" in s.missing_todos()
     with pytest.raises(ValueError, match="TODO"):
         s.require_complete()

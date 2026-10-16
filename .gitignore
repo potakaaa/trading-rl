@@ -24,3 +24,7 @@ dashboard/.env*
 .DS_Store
 .idea/
 .vscode/
+
+# Generated from synthetic data (dev only) and generated charts
+reports/*SYNTHETIC*
+reports/samples/

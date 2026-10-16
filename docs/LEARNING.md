@@ -305,3 +305,28 @@ Per the pre-registration, the final 2025-2026 test was **not** run, because noth
 
 Run everything again with `uv run python -m src.cli backtest round2` (report:
 `reports/round2_latest.html`). LightGBM on macOS needs `brew install libomp` (already installed).
+
+## Round 3: swing trading on 4 instruments + RL filter (2026-10-17)
+
+**What changed:** holds can now last overnight and over weekends, and US500, gold (XAUUSD) and EURUSD were added.
+Rules were frozen first in `docs/STRATEGIES_R3.md` (commit `898fe26`). Data: 2018-2026 1m bars for
+all four instruments from Dukascopy's chart endpoint (identical, bar for bar, to the original US100
+history). Costs include an UNCONFIRMED swap estimate per night held.
+
+**Strategies (2019-2024): none passed.**
+- **Closest:** turn-of-month (long US indices around month-end) made +0.095 R per trade over 142 trades,
+  with a 60% win rate, and stayed positive with doubled costs. Its t-stat of 1.6 is below the 2.0
+  bar, so it can't be told apart from luck yet.
+- **Swap costs:** they killed the long-hold trend systems. Moving-average trend made +0.85 R per trade
+  before costs but lost after them, because it holds for weeks and pays swap every night.
+
+**RL filter:** it passed the walk-forward rule, but only just (+0.003 R per unit with doubled costs).
+As pre-registered, it then got **one** test on the untouched 2025-01 .. 2026-10 data:
+- **Base costs:** +12.0 R over 210 trades (+0.07 R per unit), while taking every trade lost -1.4 R.
+- **Doubled costs:** +1.2 R, which is break-even.
+- **Significance:** t-stat about 1.1, and a bootstrap gives about a 10% chance the true edge is zero or negative.
+- **In money:** about +6.7 R a year = **about $84 a year on $2,500 (+3.4%)**. The challenge needs +8% and then +5%.
+
+**What that means:** this is the first result that held up on unseen data, but it is small, fragile
+to costs, and not statistically proven. It is a candidate for **paper trading**, which is the next
+out-of-sample test. It is not a reason to risk money.

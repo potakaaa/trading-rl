@@ -215,7 +215,9 @@ def test_feed_failure_is_fail_safe(settings, synthetic, tmp_path):
 
     eng.provider.fetch_before = boom
     eng.poll(ny("2024-02-14 10:01:20"))
-    assert eng.status == "NO-DATA" and not eng.feed_ok
+    assert eng.status == "NO-DATA" and not eng.feed_ok             # no signals immediately
+    assert not any("disconnected" in e["text"] for e in eng.store.events())   # one blip: no alert yet
+    eng.poll(ny("2024-02-14 10:01:35"))
     assert any("disconnected" in e["text"] for e in eng.store.events())
 
 
@@ -300,3 +302,23 @@ def test_api_account_settings_news_ws(api):
     with c.websocket_connect("/ws") as ws:
         msg = ws.receive_json()
         assert msg["type"] == "status" and msg["data"]["mode"] == "paper"
+
+
+def test_news_falls_back_to_recent_archive_but_not_old_one(settings, synthetic, tmp_path):
+    import json as _json
+
+    from src.news.forexfactory import ForexFactoryProvider, archive_dir
+    d = archive_dir(settings)
+    d.mkdir(parents=True)
+    feed = [{"title": "CPI m/m", "country": "USD", "impact": "High", "date": "2024-02-14T08:30:00-05:00"}]
+    (d / "ff_2024-02-14T1450.json").write_text(_json.dumps(feed))
+    down = ForexFactoryProvider(settings, transport=httpx.MockTransport(lambda r: httpx.Response(429)))
+    eng = _engine_for(settings, synthetic, tmp_path)
+    eng.news = LiveNewsCalendar(down, settings)
+    eng.bootstrap(ny("2024-02-14 10:00"))                       # snapshot fetched 09:50 NY -> fresh
+    assert eng.status != "NO-NEWS" and eng.news.calendar is not None
+    eng2 = _engine_for(settings, synthetic, tmp_path / "b")
+    eng2.news = LiveNewsCalendar(down, settings)
+    eng2.bootstrap(ny("2024-02-14 15:00"))                      # 5 h later -> too old -> fail-safe
+    assert eng2.status == "NO-NEWS"
+    assert any("unavailable at startup" in e["text"] for e in eng2.store.events())

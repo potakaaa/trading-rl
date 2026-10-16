@@ -107,6 +107,12 @@ class LiveNewsCalendar:
         self.last_error = None
         return True
 
+    def load_snapshot(self, fetched_at: pd.Timestamp, events) -> None:
+        """Use a previously fetched snapshot. Staleness still counts from when it was FETCHED, so an
+        old snapshot cannot make the system look safe."""
+        self.calendar = NewsCalendar.from_settings(events_to_frame(events), self.s)
+        self.last_ok = pd.Timestamp(fetched_at)
+
     def status(self, now: pd.Timestamp | None = None) -> BlackoutStatus:
         now = now or pd.Timestamp.now(tz="UTC")
         stale = pd.Timedelta(minutes=self.s.news.stale_after_minutes)

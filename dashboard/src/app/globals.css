@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0b0e14;
+  --color-panel: #121722;
+  --color-edge: #222a38;
+  --color-muted: #8b95a7;
+  --color-fg: #e6e9ef;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded border border-edge bg-white/5 px-2.5 py-1 text-xs font-medium text-fg transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-sky-500/50 bg-sky-500/20 text-sky-100 hover:bg-sky-500/30;
+  }
+  .btn-danger {
+    @apply border-red-500/50 bg-red-500/20 text-red-100 hover:bg-red-500/30;
+  }
+  .btn-on {
+    @apply border-sky-400/70 bg-sky-500/25 text-sky-100;
+  }
+  .field {
+    @apply w-full rounded border border-edge bg-black/30 px-2 py-1 text-sm text-fg placeholder:text-slate-600 focus:border-sky-500/70 focus:outline-none;
+  }
+}

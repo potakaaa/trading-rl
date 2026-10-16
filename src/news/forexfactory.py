@@ -73,6 +73,17 @@ def archive_dir(settings: Settings) -> Path:
     return data_dir(settings) / "news" / "ff_archive"
 
 
+def latest_archive(settings: Settings) -> tuple[pd.Timestamp, list[NewsEvent]] | None:
+    """Newest archived feed snapshot and the UTC time it was fetched (from its file name)."""
+    for f in sorted(archive_dir(settings).glob("ff_*.json"), reverse=True):
+        try:
+            t = pd.Timestamp(datetime.strptime(f.stem[3:], "%Y-%m-%dT%H%M"), tz="UTC")
+            return t, parse_ff(json.loads(f.read_text()), settings.news.currency, settings.news.impact)
+        except (NewsFeedError, ValueError):
+            continue
+    return None
+
+
 def load_archive(settings: Settings) -> list[NewsEvent]:
     events: dict[tuple, NewsEvent] = {}
     for f in sorted(archive_dir(settings).glob("ff_*.json")):

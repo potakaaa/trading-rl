@@ -73,6 +73,7 @@ class LiveEngine:
         self.last_bar: pd.Timestamp | None = None        # start time of the newest 1m bar
         self.last_close_processed: pd.Timestamp | None = None
         self.feed_ok, self.feed_error, self.feed_lag = True, None, None
+        self.feed_failures = 0
         self.started_at: pd.Timestamp | None = None
         self.next_news_refresh: pd.Timestamp | None = None
         self.status, self.status_reason = "STARTING", ""
@@ -145,6 +146,8 @@ class LiveEngine:
         if not self.feed_ok:
             self.alert(now, f"data feed disconnected: {self.feed_error}", "critical", key="feed")
         self._update_status(now)
+        if self.status == "NO-NEWS":
+            self.alert(now, f"news data unavailable at startup, no signals: {self.status_reason}", "critical")
 
     def stop(self, now) -> None:
         self.alert(now, "engine stopped", "warning")
@@ -152,6 +155,12 @@ class LiveEngine:
     # ------------------------------------------------------------------------------ news
     def refresh_news(self, now) -> None:
         ok = self.news.refresh(now)
+        if not ok and self.news.calendar is None:
+            # e.g. HTTP 429 right after a restart: fall back to the last archived snapshot if recent
+            from src.news.forexfactory import latest_archive
+            snap = latest_archive(self.s) if getattr(self.news.provider, "name", "") == "forexfactory" else None
+            if snap and pd.Timestamp(now) - snap[0] <= pd.Timedelta(minutes=self.s.news.stale_after_minutes):
+                self.news.load_snapshot(*snap)
         self.next_news_refresh = pd.Timestamp(now) + pd.Timedelta(minutes=self.s.news.refresh_minutes)
         if not ok:
             # retry sooner while failing; status() goes fail-safe once data is stale
@@ -211,10 +220,14 @@ class LiveEngine:
         try:
             df = self.provider.fetch_before(now, max(need, 5))
         except FeedError as e:
-            if self.feed_ok:
+            # status goes NO-DATA at once (no signals); the alert waits for a 2nd failure in a row,
+            # because single handshake timeouts are common on this feed and recover within seconds
+            self.feed_failures += 1
+            if self.feed_failures >= 2:
                 self.alert(now, f"data feed disconnected: {e}", "critical", key="feed")
             self.feed_ok, self.feed_error = False, str(e)
             return pd.DataFrame()
+        self.feed_failures = 0
         if not self.feed_ok and self.clear_alert("feed"):
             self.alert(now, "data feed reconnected", "info")
         self.feed_ok, self.feed_error = True, None

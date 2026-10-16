@@ -59,8 +59,12 @@ def rl_frame(t: pd.DataFrame) -> pd.DataFrame:
     c["armed_at"] = pd.to_datetime(c["signal_time"], utc=True)
     c["exit_time"] = pd.to_datetime(c["exit_time"], utc=True)
     c["setup_type"] = c["strategy"] + "|" + c["instrument"]
-    c["strategy_code"] = c["strategy"].astype("category").cat.codes
-    c["instrument_code"] = c["instrument"].astype("category").cat.codes
+    # fixed alphabetical code maps (identical to the research run, where every category was present),
+    # so a model trained on one period means the same thing on another
+    from src.strategies.swing import SWING_STRATEGIES
+    c["strategy_code"] = pd.Categorical(c["strategy"], categories=sorted(SWING_STRATEGIES)).codes
+    c["instrument_code"] = pd.Categorical(c["instrument"], categories=sorted(["EURUSD", "US100", "US500",
+                                                                             "XAUUSD"])).codes
     c["dir"] = np.where(c["direction"] == "long", 1.0, -1.0)
     c["filled"] = True
     c["week"] = c["armed_at"].dt.tz_convert("America/New_York").dt.strftime("%G-W%V")
@@ -118,3 +122,27 @@ def run(settings: Settings, log=print) -> dict:
     (PROJECT_ROOT / "reports" / "round3_latest.html").write_text(page)
     table.to_csv(out / "strategies_research.csv")
     return {"table": table, "by_inst": by_inst, "wf": wf, "verdict": verdict, "news": news}
+
+
+def final_test(settings: Settings, log=print) -> dict:
+    """ONE-TIME evaluation on the untouched period (>= research.holdout_start) of what passed:
+    the RL filter, trained on ALL research-period trades (2019-2024)."""
+    from src.ml.rl_filter import fold_summary, run_policy, train
+    from src.strategies.swing import run_all
+    research = pd.read_parquet(PROJECT_ROOT / "reports" / "round3" / "trades_research.parquet")
+    tr = rl_frame(research)
+    log("training RL on 2019-2024 ...")
+    pol = train(tr, seed=0, market_features=SWING_FEATURES, episode_col="week")
+    log("generating 2025+ trades (final period) ...")
+    base = run_all(settings, final=True, log=log)
+    stress = run_all(settings, final=True, cost_mult=settings.backtest.spread_stress_mult, log=lambda *a: None)
+    te = rl_frame(merge_runs(base, stress))
+    kw = {"market_features": SWING_FEATURES, "episode_col": "week"}
+    rl, rl2, allr = run_policy(pol, te, **kw), run_policy(pol, te, "r_2x", **kw), run_policy("all", te, **kw)
+    out = {"period": f"{settings.research.holdout_start} .. {te['armed_at'].max():%Y-%m-%d}",
+           "candidates": len(te), "rl": fold_summary(rl), "rl_2x": fold_summary(rl2), "take_all": fold_summary(allr)}
+    taken = rl[rl["action"] > 0].merge(te[["strategy", "instrument"]], left_on="idx", right_index=True)
+    out["rl_by_strategy"] = taken.groupby("strategy")["r_taken"].agg(["size", "sum"]).round(2).to_dict()
+    pd.DataFrame([out]).to_json(PROJECT_ROOT / "reports" / "round3" / "final_test.json", orient="records", indent=1)
+    te.to_parquet(PROJECT_ROOT / "reports" / "round3" / "trades_final.parquet")
+    return out

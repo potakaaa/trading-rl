@@ -34,7 +34,7 @@ def raw_dir(settings: Settings, key: str) -> Path:
     return root / "raw" / "freeserv" / key
 
 
-def download(settings: Settings, key: str, start: str, end: str | None = None, pause: float = 1.5,
+def download(settings: Settings, key: str, start: str, end: str | None = None, pause: float = 0.6,
              log=print) -> list[str]:
     s = instrument_settings(settings, key)
     prov = DukascopyLiveProvider(s)

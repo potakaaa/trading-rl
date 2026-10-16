@@ -124,9 +124,9 @@ def reward(a: float, r: float, day_before: float) -> tuple[float, float]:
     return rew, day_after
 
 
-def _episodes(c: pd.DataFrame):
+def _episodes(c: pd.DataFrame, episode_col: str = "trading_day"):
     c = c.sort_values("armed_at")
-    for _, g in c.groupby("trading_day", sort=True):
+    for _, g in c.groupby(episode_col, sort=True):
         yield g
 
 
@@ -154,14 +154,16 @@ def _row_features(g: pd.DataFrame, feats: list[str]) -> np.ndarray:
     return g[feats].to_numpy(dtype=float)
 
 
-def train(c: pd.DataFrame, seed: int = 0) -> QPolicy:
-    """Fitted Q-iteration on the candidates in `c` (must contain market features, r, trading_day)."""
+def train(c: pd.DataFrame, seed: int = 0, market_features: list[str] | None = None,
+          episode_col: str = "trading_day") -> QPolicy:
+    """Fitted Q-iteration on the candidates in `c` (must contain market features, r, episode_col)."""
     rng = np.random.default_rng(seed)
-    feats = MARKET_FEATURES + STATE_FEATURES
+    mf = market_features or MARKET_FEATURES
+    feats = mf + STATE_FEATURES
     # 1) behaviour rollouts: random actions -> visited states (market features + day state)
     S, A, R, NEXT, TERM = [], [], [], [], []
-    for g in _episodes(c):
-        Xm = _row_features(g, MARKET_FEATURES)
+    for g in _episodes(c, episode_col):
+        Xm = _row_features(g, mf)
         rs = g["r"].to_numpy(dtype=float)
         for _ in range(N_ROLLOUTS):
             day_r, trades = 0.0, 0
@@ -202,11 +204,13 @@ def train(c: pd.DataFrame, seed: int = 0) -> QPolicy:
     return QPolicy(model, feats)
 
 
-def run_policy(policy: QPolicy | str, c: pd.DataFrame, r_col: str = "r") -> pd.DataFrame:
+def run_policy(policy: QPolicy | str, c: pd.DataFrame, r_col: str = "r", market_features: list[str] | None = None,
+               episode_col: str = "trading_day") -> pd.DataFrame:
     """Greedy rollout over candidates (in time order). policy 'all' = take every candidate at 1x."""
     rows = []
-    for g in _episodes(c):
-        Xm = _row_features(g, MARKET_FEATURES)
+    mf = market_features or MARKET_FEATURES
+    for g in _episodes(c, episode_col):
+        Xm = _row_features(g, mf)
         rs = g[r_col].to_numpy(dtype=float)
         day_r, trades = 0.0, 0
         for i, (idx, cand) in enumerate(g.iterrows()):
@@ -228,7 +232,8 @@ def fold_summary(res: pd.DataFrame) -> dict:
             "win_rate": float((t["r"] > 0).mean()) if len(t) else np.nan}
 
 
-def walk_forward(c: pd.DataFrame, folds: list[tuple[str, str]], log=print) -> pd.DataFrame:
+def walk_forward(c: pd.DataFrame, folds: list[tuple[str, str]], log=print, market_features: list[str] | None = None,
+                 episode_col: str = "trading_day") -> pd.DataFrame:
     """Expanding-window walk-forward. Returns one row per fold with RL and take-all results."""
     rows = []
     c = c.copy()
@@ -238,9 +243,10 @@ def walk_forward(c: pd.DataFrame, folds: list[tuple[str, str]], log=print) -> pd
         tr = c[pd.to_datetime(c["exit_time"], utc=True).fillna(c["armed_at"]) < s]
         tr = tr[tr["armed_at"] < s]
         te = c[(c["armed_at"] >= s) & (c["armed_at"] < e)]
-        pol = train(tr, seed=k)
-        rl, rl2 = run_policy(pol, te), run_policy(pol, te, "r_2x")
-        allr = run_policy("all", te)
+        kw = {"market_features": market_features, "episode_col": episode_col}
+        pol = train(tr, seed=k, **kw)
+        rl, rl2 = run_policy(pol, te, **kw), run_policy(pol, te, "r_2x", **kw)
+        allr = run_policy("all", te, **kw)
         a, b, b2 = fold_summary(allr), fold_summary(rl), fold_summary(rl2)
         rows.append({"fold": f"{start[:7]}..{end[:7]}", "train_candidates": len(tr), "test_candidates": len(te),
                      "all_taken": a["taken"], "all_total_r": a["total_r"], "all_r_per_trade": a["r_per_unit"],

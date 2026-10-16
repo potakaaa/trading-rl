@@ -215,6 +215,17 @@ def cmd_data_swing_download(s, a):
     print("ALL DONE", flush=True)
 
 
+def cmd_backtest_round3(s, a):
+    """Round-3 swing research: 6 pre-registered strategies x 4 instruments + RL (docs/STRATEGIES_R3.md)."""
+    from src.strategies.swing_research import run
+    r = run(s)
+    cols = ["trades", "win_rate", "expectancy_r", "expectancy_r_no_costs", "expectancy_r_2x_costs", "t_stat",
+            "positive_years", "PASS"]
+    print(r["table"][cols].round(3).to_string())
+    print("RL filter:", "PASS" if r["verdict"][0] else "FAIL", "-", r["verdict"][1])
+    print(f"report: {PROJECT_ROOT / 'reports' / 'round3_latest.html'}")
+
+
 def main(argv=None):
     load_dotenv(PROJECT_ROOT / ".env")
     p = argparse.ArgumentParser(prog="src.cli")
@@ -252,6 +263,7 @@ def main(argv=None):
     b.add_parser("run").set_defaults(fn=cmd_backtest_run)
     b.add_parser("research").set_defaults(fn=cmd_research_run)
     b.add_parser("round2").set_defaults(fn=cmd_backtest_round2)
+    b.add_parser("round3").set_defaults(fn=cmd_backtest_round3)
 
     lv = sub.add_parser("live").add_subparsers(dest="cmd", required=True)
     x = lv.add_parser("run")

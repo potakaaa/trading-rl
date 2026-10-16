@@ -127,6 +127,7 @@ class Live(BaseModel):
     state_source: Literal["paper", "journal"] = "paper"
     poll_seconds: int = 15
     heartbeat_seconds: int
+    max_signal_delay_seconds: int = 120
     lookback_days: dict[str, int]
     db_path: str
     api_host: str

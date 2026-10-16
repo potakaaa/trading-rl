@@ -336,3 +336,23 @@ def test_provider_retries_once_on_connection_error(settings):
     p = DukascopyLiveProvider(settings, transport=httpx.MockTransport(handler))
     df = p.fetch_before(pd.Timestamp("2026-10-16 13:00", tz="UTC"), 5)
     assert len(calls) == 2 and len(df) == 1
+
+
+def test_setup_seen_late_after_outage_is_blocked(settings, synthetic, tmp_path):
+    """Replay 2024-02-12 but deliver the 10:05 NY close only 5 minutes late (feed outage)."""
+    settings.live.lookback_days["5m"] = 12
+    eng = _engine_for(settings, synthetic, tmp_path)
+    t = ny("2024-02-12 09:00")
+    eng.bootstrap(t)
+    outage = (ny("2024-02-12 10:03"), ny("2024-02-12 10:12"))
+    real_fetch = eng.provider.fetch_before
+    while t < ny("2024-02-12 11:00"):
+        t += pd.Timedelta(minutes=1)
+        if outage[0] <= t < outage[1]:
+            eng.provider.fetch_before = lambda *a, **k: (_ for _ in ()).throw(FeedError("down"))
+        else:
+            eng.provider.fetch_before = real_fetch
+        eng.poll(t + pd.Timedelta(seconds=20))
+    blocks = eng.store.blocks()
+    assert any(any(r.startswith("late_data") for r in b["reasons"]) for b in blocks), blocks
+    assert not eng.store.signals(10)        # the 10:05 setup must not become a signal

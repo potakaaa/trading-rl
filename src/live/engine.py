@@ -185,7 +185,7 @@ class LiveEngine:
             latest_close = self._floor5(self.last_bar + ONE)       # newest 5m boundary we have data up to
             t = self.last_close_processed + FIVE
             while t <= latest_close:
-                self.on_bar_close(t)
+                self.on_bar_close(t, now)
                 self.last_close_processed = t
                 t += FIVE
         self._update_status(now)
@@ -271,8 +271,9 @@ class LiveEngine:
         return out
 
     # ------------------------------------------------------------------------- detection
-    def on_bar_close(self, t: pd.Timestamp) -> None:
-        """A 5m bar ending at t just completed."""
+    def on_bar_close(self, t: pd.Timestamp, wall: pd.Timestamp | None = None) -> None:
+        """A 5m bar ending at t just completed (`wall` = real time we are processing it)."""
+        self._wall = wall if wall is not None else t
         bar_start = t - FIVE
         if session_of(pd.DatetimeIndex([bar_start]), self.s.sessions).iloc[0] is None:
             return
@@ -300,6 +301,10 @@ class LiveEngine:
         sig = SignalCandidate(time=now, session=s["session"], stop_pts=float(s["risk_pts"]),
                               direction=s["direction"], setup_type=s["setup_type"])
         dec = evaluate(sig, state, news, self.s)
+        late = (getattr(self, "_wall", now) - now).total_seconds()
+        if late > self.s.live.max_signal_delay_seconds:
+            # fail safe: data arrived late (feed outage), the entry may already be gone
+            dec = type(dec)(allowed=False, reasons=(*dec.reasons, f"late_data_{late:.0f}s"), size=dec.size)
         td = td_str(now, self.s)
         if not dec.allowed:
             self.store.add_block(key, now, td, s["setup_type"], s["direction"], list(dec.reasons))

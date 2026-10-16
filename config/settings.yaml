@@ -79,6 +79,7 @@ live:
   state_source: paper            # account state for the guard: paper (simulated outcomes) | journal (Rald's fills)
   poll_seconds: 15
   heartbeat_seconds: 60          # alert if no new 1m bar for this long (+30 s normal feed lag) in a session
+  max_signal_delay_seconds: 120  # a setup seen this long after its bar closed (feed outage) is blocked: late_data
   lookback_days: { "5m": 30, "15m": 60, "1h": 120, "4h": 400, "1d": 3000 }
   db_path: data/live/live.db
   api_host: 127.0.0.1

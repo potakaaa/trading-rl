@@ -223,6 +223,10 @@ itself on new data (paper trading) before real money.
   setups the backtest found, at the same time and price. Three real 2023 days also matched.
 - **Fail safe:** if the feed errors or goes quiet for more than 90 s in a session, the status is NO-DATA and
   there are no signals, plus an alert. If news can't be loaded or is older than 2 h: NO-NEWS, no signals.
+- **Late data:** if the feed drops out and a 5m bar arrives more than 2 minutes late, its setup
+  is blocked (`late_data`). The entry may already be gone, so a late signal is worse than none.
+  The live test on 2026-10-16 had two 1.5-2 minute outages right at the 09:30 open. They triggered
+  NO-DATA and alerts as designed.
 - **Paper mode:** every signal is labelled unproven. The engine simulates each signal's fill and
   exit with the backtest's fill rules, and those paper results drive the account state by default
   (`live.state_source: paper`). Switch to `journal` to use only the trades you mark as taken.

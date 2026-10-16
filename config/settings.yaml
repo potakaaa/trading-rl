@@ -194,3 +194,13 @@ research:
     no_htf_alignment: {setups.require_htf_alignment: false}
     combo_fill_and_1_5r: {setups.entry_mode: fvg_start, setups.entry_expiry_bars: 12,
                           setups.target_mode: fixed_r, setups.fixed_target_r: 1.5, setups.min_rr: 1.5}
+
+# Round 3 (swing) instruments. Spreads, slippage and swaps are UNCONFIRMED conservative estimates;
+# check the Match-Trader symbol info. Swap: pct = annual % of position value charged per calendar
+# night (long AND short pay; a weekend = 3 nights); pips = fixed price units per night.
+instruments:
+  US100:  {feed: "USATECH.IDX/USD", root: data/instruments/US100,  spread: 2.0,     stop_slippage: 1.0,     swap: {type: pct, annual_pct: 7.5},  sanity: [3000, 60000]}
+  US500:  {feed: "USA500.IDX/USD",  root: data/instruments/US500,  spread: 0.6,     stop_slippage: 0.25,    swap: {type: pct, annual_pct: 7.5},  sanity: [1000, 20000]}
+  XAUUSD: {feed: "XAU/USD",         root: data/instruments/XAUUSD, spread: 0.30,    stop_slippage: 0.10,    swap: {type: pct, annual_pct: 7.5},  sanity: [500, 10000]}
+  EURUSD: {feed: "EUR/USD",         root: data/instruments/EURUSD, spread: 0.00010, stop_slippage: 0.00005, swap: {type: price, per_night: 0.0001}, sanity: [0.5, 2.0]}
+swing_history_start: "2018-01-01"   # one extra year so 200-day averages exist from 2019

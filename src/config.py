@@ -247,6 +247,21 @@ class Research(BaseModel):
     variants: dict[str, dict[str, object]]
 
 
+class Swap(BaseModel):
+    type: Literal["pct", "price"]
+    annual_pct: float = 0.0
+    per_night: float = 0.0
+
+
+class InstrumentSpec(BaseModel):
+    feed: str
+    root: str
+    spread: float
+    stop_slippage: float
+    swap: Swap
+    sanity: tuple[float, float]
+
+
 class Settings(BaseModel):
     instrument: Instrument
     timezones: Timezones
@@ -262,6 +277,8 @@ class Settings(BaseModel):
     backtest: Backtest
     challenge: Challenge
     research: Research
+    instruments: dict[str, InstrumentSpec] = {}
+    swing_history_start: str = "2018-01-01"
 
     def missing_todos(self) -> list[str]:
         required = {

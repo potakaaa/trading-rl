@@ -154,35 +154,56 @@ def _row_features(g: pd.DataFrame, feats: list[str]) -> np.ndarray:
     return g[feats].to_numpy(dtype=float)
 
 
+def _times(g: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Decision times and exit times (ns). A candidate without an exit (unfilled) 'closes' at its decision."""
+    t = pd.DatetimeIndex(pd.to_datetime(g["armed_at"], utc=True)).as_unit("ns").asi8
+    if "exit_time" in g:
+        ex = pd.to_datetime(g["exit_time"], utc=True)
+        ex = ex.fillna(pd.to_datetime(g["armed_at"], utc=True))
+        e = pd.DatetimeIndex(ex).as_unit("ns").asi8
+    else:
+        e = t.copy()
+    return t, np.maximum(e, t)
+
+
+def known_r(taken_r: np.ndarray, exits: np.ndarray, upto: int, t_now: int) -> float:
+    """R of the earlier candidates (0..upto-1) whose trades had CLOSED by t_now. Open trades' outcomes
+    are unknown at decision time and must not leak into the state (no lookahead)."""
+    if upto <= 0:
+        return 0.0
+    m = exits[:upto] <= t_now
+    return float(taken_r[:upto][m].sum())
+
+
 def train(c: pd.DataFrame, seed: int = 0, market_features: list[str] | None = None,
           episode_col: str = "trading_day") -> QPolicy:
     """Fitted Q-iteration on the candidates in `c` (must contain market features, r, episode_col)."""
     rng = np.random.default_rng(seed)
     mf = market_features or MARKET_FEATURES
     feats = mf + STATE_FEATURES
-    # 1) behaviour rollouts: random actions -> visited states (market features + day state)
+    # behaviour rollouts with random actions -> visited states; every action is then evaluated at every
+    # visited state (each candidate's outcome R does not depend on our action)
     S, A, R, NEXT, TERM = [], [], [], [], []
     for g in _episodes(c, episode_col):
         Xm = _row_features(g, mf)
         rs = g["r"].to_numpy(dtype=float)
+        tt, ex = _times(g)
+        n = len(g)
         for _ in range(N_ROLLOUTS):
-            day_r, trades = 0.0, 0
-            states = []
-            for i in range(len(g)):
-                states.append(np.concatenate([Xm[i], [day_r, trades]]))
-                a = float(rng.choice(ACTIONS))
-                _, day_r = reward(a, rs[i], day_r)
-                trades += a > 0
-            # every action at every visited state (counterfactual rewards are known)
-            for i, s in enumerate(states):
+            acts = rng.choice(ACTIONS, size=n)
+            taken = acts * rs
+            committed = np.concatenate([[0.0], np.cumsum(taken)])       # incl. still-open trades (reward only)
+            trades = np.concatenate([[0], np.cumsum(acts > 0)])
+            for i in range(n):
+                s = np.concatenate([Xm[i], [known_r(taken, ex, i, tt[i]), trades[i]]])
                 for a in ACTIONS:
-                    rew, d_after = reward(a, rs[i], s[-2])
+                    rew, _ = reward(a, rs[i], committed[i])
                     S.append(s)
                     A.append(a)
                     R.append(rew)
-                    if i + 1 < len(states):
-                        nxt = np.concatenate([Xm[i + 1], [d_after, s[-1] + (a > 0)]])
-                        NEXT.append(nxt)
+                    if i + 1 < n:
+                        k_next = known_r(taken, ex, i, tt[i + 1]) + (a * rs[i] if ex[i] <= tt[i + 1] else 0.0)
+                        NEXT.append(np.concatenate([Xm[i + 1], [k_next, trades[i] + (a > 0)]]))
                         TERM.append(False)
                     else:
                         NEXT.append(s)
@@ -197,7 +218,7 @@ def train(c: pd.DataFrame, seed: int = 0, market_features: list[str] | None = No
         else:
             nq = np.max(np.column_stack([model.predict(np.column_stack([NEXT, np.full(len(NEXT), a)]))
                                          for a in ACTIONS]), axis=1)
-            nq = np.maximum(nq, 0.0)          # skipping the rest of the day is always available (Q >= 0)
+            nq = np.maximum(nq, 0.0)          # skipping the rest of the episode is always available (Q >= 0)
             y = R + np.where(TERM, 0.0, nq)
         model = lgb.LGBMRegressor(random_state=seed + it, **LGB_PARAMS)
         model.fit(np.column_stack([S, A]), y)
@@ -206,19 +227,22 @@ def train(c: pd.DataFrame, seed: int = 0, market_features: list[str] | None = No
 
 def run_policy(policy: QPolicy | str, c: pd.DataFrame, r_col: str = "r", market_features: list[str] | None = None,
                episode_col: str = "trading_day") -> pd.DataFrame:
-    """Greedy rollout over candidates (in time order). policy 'all' = take every candidate at 1x."""
+    """Greedy rollout over candidates (in time order). policy 'all' = take every candidate at 1x.
+    The account state at each decision only counts trades that had closed by then."""
     rows = []
     mf = market_features or MARKET_FEATURES
     for g in _episodes(c, episode_col):
         Xm = _row_features(g, mf)
         rs = g[r_col].to_numpy(dtype=float)
-        day_r, trades = 0.0, 0
+        tt, ex = _times(g)
+        taken = np.zeros(len(g))
+        trades = 0
         for i, (idx, cand) in enumerate(g.iterrows()):
             if policy == "all":
                 a, q = 1.0, np.nan
             else:
-                a, q = policy.act(np.concatenate([Xm[i], [day_r, trades]]))
-            _, day_r = reward(a, rs[i], day_r)
+                a, q = policy.act(np.concatenate([Xm[i], [known_r(taken, ex, i, tt[i]), trades]]))
+            taken[i] = a * rs[i]
             trades += a > 0
             rows.append({"idx": idx, "setup_type": cand["setup_type"], "armed_at": cand["armed_at"], "action": a,
                          "q": q, "r": rs[i], "r_taken": a * rs[i], "filled": bool(cand["filled"])})

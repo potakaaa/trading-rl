@@ -320,13 +320,16 @@ history). Costs include an UNCONFIRMED swap estimate per night held.
 - **Swap costs:** they killed the long-hold trend systems. Moving-average trend made +0.85 R per trade
   before costs but lost after them, because it holds for weeks and pays swap every night.
 
-**RL filter:** it passed the walk-forward rule, but only just (+0.003 R per unit with doubled costs).
-As pre-registered, it then got **one** test on the untouched 2025-01 .. 2026-10 data:
-- **Base costs:** +12.0 R over 210 trades (+0.07 R per unit), while taking every trade lost -1.4 R.
-- **Doubled costs:** +1.2 R, which is break-even.
-- **Significance:** t-stat about 1.1, and a bootstrap gives about a 10% chance the true edge is zero or negative.
-- **In money:** about +6.7 R a year = **about $84 a year on $2,500 (+3.4%)**. The challenge needs +8% and then +5%.
+**RL filter: CORRECTION (2026-10-17).** The first run reported that the RL filter passed and then made
++12 R in a one-time 2025-26 test. **That result was wrong.** The agent's "R so far" state included
+the final result of trades that were *still open* when it made its next decision. With multi-day
+swing trades, that is lookahead: it was partly seeing the future. After the fix, a trade only counts
+once it has closed, and a regression test now checks this.
+- **Corrected walk-forward:** -2.1 R total out of sample (-0.06 R per unit with doubled costs). It
+  beat "take every trade" in only 4 of 8 periods, so it **fails** the pre-registered rule.
+- **No final test:** because it fails, the corrected filter was not tested on 2025-26. The earlier
+  final-test file is kept as `reports/round3/final_test_INVALID_lookahead.json` for the record.
+- **Round 2:** its RL filter was re-run with the fix and still fails (-13.2 R).
 
-**What that means:** this is the first result that held up on unseen data, but it is small, fragile
-to costs, and not statistically proven. It is a candidate for **paper trading**, which is the next
-out-of-sample test. It is not a reason to risk money.
+**Lesson:** a result that looks good on unseen data can still come from a bug. Lookahead is easy to
+introduce, which is why every state and feature needs a "could I have known this then?" test.

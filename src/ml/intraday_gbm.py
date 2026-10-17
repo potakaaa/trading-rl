@@ -11,6 +11,8 @@ PARAMS = dict(n_estimators=300, learning_rate=0.03, num_leaves=15, min_child_sam
               subsample_freq=1, colsample_bytree=0.8, reg_lambda=1.0, verbose=-1)
 TAUS = [0.00, 0.05, 0.10, 0.15, 0.20, 0.30]
 MAX_PER_SESSION, MAX_PER_DAY = 2, 3
+RISK_USD = 12.5                 # 0.5% of $2,500
+WIN_R = 5.0 / RISK_USD          # Rald's rule: a trade is a success only if it nets > $5 (= 0.4 R)
 
 
 def _fit(X, y, seed):
@@ -129,6 +131,9 @@ def summarize(results: list[dict]) -> tuple[pd.DataFrame, dict]:
         verdicts[k] = {"trades": len(r), "mean_r": float(r.mean()) if len(r) else np.nan,
                        "mean_r_2x": float(allt["r_2x"].mean()) if len(r) else np.nan, "t_stat": float(tstat),
                        "win_rate": float((r > 0).mean()) if len(r) else np.nan,
+                       "win_rate_over_5usd": float((r > WIN_R).mean()) if len(r) else np.nan,
+                       "avg_usd_per_trade": float(r.mean() * RISK_USD) if len(r) else np.nan,
                        "total_r": float(r.sum()), "positive_folds": f"{pos}/{len(table)}",
-                       "PASS": bool(len(r) >= 150 and allt["r_2x"].mean() > 0 and tstat >= 3.0 and pos >= 7)}
+                       "PASS": bool(len(r) >= 150 and allt["r_2x"].mean() > 0 and tstat >= 3.0 and pos >= 7
+                                    and r.mean() > WIN_R)}
     return table, verdicts

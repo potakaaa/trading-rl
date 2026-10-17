@@ -76,3 +76,11 @@ Changes vs round 4 (everything else is identical: features, models, gate, tau gr
   stress = double both. Round 4 is also re-scored with the confirmed spread (a cost correction; its
   rules and models are unchanged).
 - **Final test:** 2026-04-16 .. 2026-10-15, once, only for a variant (4 or 4b) that passes. Then paper trading.
+
+## Amendment (2026-10-17, by Rald, before the 4b run): the $5 rule
+- A trade is a **success (win) only if its net profit is > $5**, which is +0.4 R at the $12.50 risk per trade
+  (0.5% of $2,500). Win rate is reported this way from now on.
+- An additional pass criterion for every variant: **average net profit per trade > $5 (mean R > 0.4) at
+  base costs**, and mean R > 0 with 2x costs.
+- 4b runs with the conservative 2.0-pt spread. Under the 0.4 R bar, a 1-pt difference in spread changes
+  results by only about 0.02 R. A variant that passes is re-checked with Rald's confirmed spread before its final test.

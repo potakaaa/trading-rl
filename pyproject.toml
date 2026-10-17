@@ -19,6 +19,7 @@ dependencies = [
     "httpx",
     "plotly>=7.1.0",
     "torch>=2.14.1",
+    "databento>=0.87.0",
 ]
 
 [dependency-groups]

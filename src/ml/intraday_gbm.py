@@ -22,16 +22,17 @@ def _fit(X, y, seed):
 
 
 class Models:
-    def __init__(self, train: pd.DataFrame, seed: int = 0):
+    def __init__(self, train: pd.DataFrame, seed: int = 0, features: list[str] | None = None):
+        self.features = features or FEATURES
         tr = train.dropna(subset=["r_long", "r_short", "range60"])
-        X = tr[FEATURES].to_numpy(dtype=float)
+        X = tr[self.features].to_numpy(dtype=float)
         self.vol = _fit(X, np.log(tr["range60"].clip(lower=1e-3)), seed)
         self.long = _fit(X, tr["r_long"].to_numpy(), seed + 1)
         self.short = _fit(X, tr["r_short"].to_numpy(), seed + 2)
         self.gate_threshold = float(np.median(self.vol.predict(X)))   # median of predictions on its training window
 
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
-        X = df[FEATURES].to_numpy(dtype=float)
+        X = df[self.features].to_numpy(dtype=float)
         out = pd.DataFrame(index=df.index)
         out["vol_pred"] = self.vol.predict(X)
         out["gate"] = out["vol_pred"] > self.gate_threshold

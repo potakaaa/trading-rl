@@ -354,3 +354,16 @@ the decision time, and labels simulated with the same fill code as every backtes
 
 **The lesson:** prediction skill alone is not enough. It has to be bigger than the cost of each trade.
 The two levers are wider stops (so costs are a smaller share of R) and lower costs (a tighter spread).
+
+**Round 4b (2x ATR stop, up to 120 min) and Rald's $5 rule (2026-10-17).** Rald set the bar for real money:
+a trade only counts as a win if it nets > $5 (+0.4 R at $12.50 risk), and a strategy needs an
+**average** of > $5 per trade.
+- **Round 4b:** with the wider stop, costs fell from about 0.11 R to about 0.05 R per trade, but the model's
+  skill disappeared too. Its trades averaged $0.13 (t 0.3), about the same as random direction (-$0.14). Fail.
+- **Round 4 under the $5 bar:** $0.06 per trade. Fail.
+- **The final six months** (2026-04-16 .. 2026-10-15) are still untouched.
+
+**Perspective on the $5 bar:** +0.4 R per trade on average is a very high bar. Many professional
+systems run at +0.1 to +0.2 R. Across four pre-registered rounds (about 25 strategies and models on
+US100 intraday plus swing tests), the best honest results were around +0.1 R before significance
+checks. Nothing came close to +0.4 R.

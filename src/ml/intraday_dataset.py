@@ -28,7 +28,9 @@ def _session_end(t: pd.Timestamp) -> pd.Timestamp:
 
 
 def build(m1df: pd.DataFrame, b15: pd.DataFrame, d1: pd.DataFrame, news: pd.DataFrame | None,
-          settings: Settings, cost_mults=(1.0, 2.0), log=print) -> pd.DataFrame:
+          settings: Settings, cost_mults=(1.0, 2.0), log=print, stop_atr: float = STOP_ATR,
+          horizon_min: int = HORIZON_MIN, target_r: float = TARGET_R) -> pd.DataFrame:
+    """stop_atr / horizon_min / target_r: round 4 = 1.0 / 60 / 1.5, round 4b = 2.0 / 120 / 1.5."""
     m1df = m1df.sort_index()
     M = M1.from_frame(m1df)
     ts, o, h, lo, c = M.ts, M.open, M.high, M.low, M.close
@@ -132,7 +134,7 @@ def build(m1df: pd.DataFrame, b15: pd.DataFrame, d1: pd.DataFrame, news: pd.Data
                 f["news_to_min"] = f["news_since_min"] = 720.0
             # ---- labels (future; never used as features)
             t_ts = pd.Timestamp(t_ns, tz="UTC")
-            fd = min(t_ts + pd.Timedelta(minutes=HORIZON_MIN), _session_end(t_ts))
+            fd = min(t_ts + pd.Timedelta(minutes=horizon_min), _session_end(t_ts))
             fut = slice(i, int(np.searchsorted(ts, fd.value)))
             f["range60"] = (h[fut].max() - lo[fut].min()) / A if fut.stop > fut.start else np.nan
             for mult in cost_mults:
@@ -140,12 +142,12 @@ def build(m1df: pd.DataFrame, b15: pd.DataFrame, d1: pd.DataFrame, news: pd.Data
                 costs = Costs(sp, sl)
                 for side in ("long", "short"):
                     fill = o[i] + (sp if side == "long" else 0.0)
-                    stop = fill - STOP_ATR * A if side == "long" else fill + STOP_ATR * A
-                    tgt = fill + TARGET_R * STOP_ATR * A if side == "long" else fill - TARGET_R * STOP_ATR * A
+                    stop = fill - stop_atr * A if side == "long" else fill + stop_atr * A
+                    tgt = fill + target_r * stop_atr * A if side == "long" else fill - target_r * stop_atr * A
                     fl = simulate(M, side, fill, stop, tgt, t_ts, t_ts + pd.Timedelta(minutes=1), fd, costs,
                                   "expired", "time_exit", order_type="market")
                     key = f"r_{side}" + ("" if mult == 1.0 else f"_{mult:g}x")
-                    f[key] = fl.pnl_pts / (STOP_ATR * A) if fl.filled else np.nan
+                    f[key] = fl.pnl_pts / (stop_atr * A) if fl.filled else np.nan
                     if mult == 1.0:
                         f[f"exit_{side}"] = fl.exit_time
             rows.append(f)
@@ -154,12 +156,12 @@ def build(m1df: pd.DataFrame, b15: pd.DataFrame, d1: pd.DataFrame, news: pd.Data
     return df
 
 
-def load_dataset(settings: Settings, start: str, end: str, log=print) -> pd.DataFrame:
+def load_dataset(settings: Settings, start: str, end: str, log=print, **trade) -> pd.DataFrame:
     from src.data.store import load_bars
     from src.news.historical import load_history
     s0 = pd.Timestamp(start, tz="UTC")
     m1 = load_bars(settings, "1m", s0 - pd.Timedelta(days=3), end)
     b15 = load_bars(settings, "15m", s0 - pd.Timedelta(days=10), end)
     d1 = load_bars(settings, "1d", s0 - pd.Timedelta(days=60), end)
-    df = build(m1, b15, d1, load_history(settings), settings, log=log)
+    df = build(m1, b15, d1, load_history(settings), settings, log=log, **trade)
     return df[(df["t"] >= s0) & (df["t"] < pd.Timestamp(end, tz="UTC"))].reset_index(drop=True)

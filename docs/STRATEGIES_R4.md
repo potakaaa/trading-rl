@@ -60,3 +60,19 @@ Expanding-window walk-forward with 6-month test folds: 2021H1, 2021H2, ..., 2025
 - If the GBM passes: train a PyTorch 1D-CNN challenger (last 120 1m returns plus the same features)
   under the same protocol, then run the better model ONCE on the final 6 months, then paper trading.
 - If the GBM fails: no neural network on this setup, and the final 6 months stay untouched.
+
+---
+# Round 4b: wider stop, longer hold. Pre-registered 2026-10-17, after round 4 failed, before any 4b run
+
+Motivation (stated openly): round 4's GBM beat random direction by about 0.11 R per trade, but costs of
+about 0.11 R cancelled it. 4b tests the same idea with costs that are a smaller share of R. Because this
+follows from round 4's result, it counts as another trial, and the t >= 3.0 bar stays.
+
+Changes vs round 4 (everything else is identical: features, models, gate, tau grid, folds, pass criteria):
+- **Stop:** 2.0 x ATR15 (was 1.0). **Target:** 1.5R = 3.0 x ATR15. **Time exit:** min(entry + 120 min,
+  session end). AM trades are therefore capped at 11:30.
+- **Spread and slippage:** the US100 spread Rald reads from Match-Trader during the NY session replaces the
+  2.0-pt estimate, and is recorded in settings.yaml before the run. Stop slippage stays 1.0 pt. 2x
+  stress = double both. Round 4 is also re-scored with the confirmed spread (a cost correction; its
+  rules and models are unchanged).
+- **Final test:** 2026-04-16 .. 2026-10-15, once, only for a variant (4 or 4b) that passes. Then paper trading.

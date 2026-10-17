@@ -34,3 +34,7 @@ skills-lock.json
 .apex/
 reports/*.html
 reports/backtest/
+reports/round*
+reports/*.parquet
+reports/*.csv
+reports/*.json

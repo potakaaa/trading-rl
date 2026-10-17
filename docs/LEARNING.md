@@ -410,3 +410,17 @@ positive, and 37% of trades netted more than $5.
   for it at this horizon.
 
 The final six months (2026-04-16 .. 2026-10-15) remain untouched.
+
+## Round 7: cross-market information (2026-10-17)
+
+Pre-registered in `docs/STRATEGIES_R7.md`. The round-4 direction model got 36 extra features: recent moves and
+divergences of the S&P 500, Dow, Russell 2000, dollar index, US T-bond, gold, EURUSD, USDJPY and oil
+(all free Dukascopy 1m data, 2018-2026).
+
+**Result: fail, and worse than without the extra data.**
+- **Without cross-markets:** +$0.22 per trade (t 0.5). **With them:** -$0.45 per trade (t -1.2), 4 of 11 periods positive.
+- **What the model did:** it put 56% of its weight on the new features, especially oil and bond moves. Those patterns did
+  not repeat in the test periods.
+- **Lesson:** more inputs give a model more chances to fit history by luck. Data only helps if it carries a real, stable signal.
+
+The final six months (2026-04-16 .. 2026-10-15) remain untouched.

@@ -424,3 +424,21 @@ divergences of the S&P 500, Dow, Russell 2000, dollar index, US T-bond, gold, EU
 - **Lesson:** more inputs give a model more chances to fit history by luck. Data only helps if it carries a real, stable signal.
 
 The final six months (2026-04-16 .. 2026-10-15) remain untouched.
+
+## Round 8: Nasdaq futures order flow (Databento, 2026-10-18)
+
+Pre-registered in `docs/STRATEGIES_R8.md` (amended for the budget before any data was analysed).
+- **Data:** 10.3 million NQ futures trades, each tagged as buyer- or seller-initiated, from the 3 minutes before each
+  10:00 and 10:30 NY decision, 2019-2026. **Cost: $50.09 of Rald's $125 Databento credit** (the card was not charged).
+- **Features:** buy/sell imbalance (all trades and large trades), volume and trade count versus normal, trade size, and
+  distance from the window's VWAP.
+
+**Result: fail.** With order flow, +$0.27 per trade (t 0.6, 6 of 11 periods positive). Without it, -$0.03.
+The model used the order-flow features (26% of its decision weight), and they nudged results up slightly,
+but nowhere near $5 per trade or statistical significance.
+
+**Bugs caught along the way (all fixed and tested):**
+- **Spending meter:** counting trade records underestimated Databento's price about 2x. The meter now charges
+  Databento's official quote for each day before downloading it.
+- **Unsigned sizes:** Databento trade sizes are unsigned integers, so "buy minus sell" wrapped around to huge numbers.
+  This was caught by runtime warnings before any result was used.

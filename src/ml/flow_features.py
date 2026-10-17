@@ -19,9 +19,9 @@ def window_stats(tr: pd.DataFrame, t: pd.Timestamp, atr15: float) -> dict:
                 "of_vwap_dist3": np.nan}
     sz = w["size"].astype(float)
     buy, sell = sz[w["side"] == "B"].sum(), sz[w["side"] == "A"].sum()
-    big = w[sz >= BIG]
-    bb = big["size"][big["side"] == "B"].sum()
-    bs = big["size"][big["side"] == "A"].sum()
+    big = sz >= BIG                       # sizes are UNSIGNED ints in Databento data: use the float copy
+    bb = float(sz[big & (w["side"] == "B")].sum())
+    bs = float(sz[big & (w["side"] == "A")].sum())
     vwap = float((w["price"] * sz).sum() / sz.sum())
     return {"vol": float(sz.sum()), "n": float(len(w)), "avg": float(sz.mean()),
             "of_delta3": float((buy - sell) / sz.sum()),

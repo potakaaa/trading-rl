@@ -333,3 +333,24 @@ once it has closed, and a regression test now checks this.
 
 **Lesson:** a result that looks good on unseen data can still come from a bug. Lookahead is easy to
 introduce, which is why every state and feature needs a "could I have known this then?" test.
+
+## Round 4: intraday machine learning (2026-10-17)
+
+**Setup** (pre-registered in `docs/STRATEGIES_R4.md`): 10 decision moments per NY session day, a
+fixed trade (stop 1 x ATR of 15-minute bars, target 1.5R, out after 60 min), 22 features known at
+the decision time, and labels simulated with the same fill code as every backtest.
+- **Stage 1, volatility gate:** a LightGBM model predicts how active the next hour will be.
+- **Stage 2, direction:** LightGBM models predict the net R of going long and of going short.
+- **Validation:** 11 walk-forward folds from 2021 to April 2026.
+
+**Result: fail, but informative.**
+- **The model has real skill:** its trades averaged +0.005 R, versus -0.107 R for the same moments with a
+  random direction. That 0.11 R gap is statistically solid (t about 3).
+- **Costs cancel it:** a 2-point spread plus 1 point of stop slippage on a 1 x ATR15 stop (about 30 points)
+  costs roughly the same 0.11 R. Net result: about zero.
+- **The volatility gate hurt:** the most active moments were not easier to predict, and costs stayed the same.
+- **What follows:** per the pre-registration, there is no neural network on this setup, and the final six months
+  (2026-04-16 .. 2026-10-15) are still untouched.
+
+**The lesson:** prediction skill alone is not enough. It has to be bigger than the cost of each trade.
+The two levers are wider stops (so costs are a smaller share of R) and lower costs (a tighter spread).

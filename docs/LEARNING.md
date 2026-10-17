@@ -393,3 +393,20 @@ The points column is independent of position size.
   about $1-3 per trade. Reaching $5 per trade with a 0.1 R edge would need about $50 risk (2% per trade),
   which is unsafe with a 4% daily limit.
 - The final six months (2026-04-16 .. 2026-10-15) are still untouched.
+
+## Round 6: neural network (1D-CNN), 2026-10-17
+
+Pre-registered in `docs/STRATEGIES_R6.md`.
+- **Setup:** a 3-network ensemble reads the last 120 one-minute bars plus the 22 round-4 features, and predicts the
+  chance that a long or short trade hits its 1.5R target (about +$18). Same trades, costs and 11 walk-forward folds as round 4.
+- **Pipeline check:** on synthetic data with a planted pattern, the network found it more than 90% of the time, so the code works.
+
+**Result: fail.** 2,446 trades averaging **-$1.19 per trade** (-0.095 R, t -3.9). Only 1 of 11 periods was
+positive, and 37% of trades netted more than $5.
+- **Versus round 4:** the gradient-boosting model averaged +$0.06, and random direction about -$1.33. The network's
+  choices were about as good as random.
+- **Why:** it never found a pocket of high-confidence trades. Its threshold always ended at the lowest settings
+  (0.30-0.35), and its validation loss stopped improving after a few epochs. The raw price sequence held no usable pattern
+  for it at this horizon.
+
+The final six months (2026-04-16 .. 2026-10-15) remain untouched.

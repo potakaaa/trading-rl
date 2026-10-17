@@ -367,3 +367,29 @@ a trade only counts as a win if it nets > $5 (+0.4 R at $12.50 risk), and a stra
 systems run at +0.1 to +0.2 R. Across four pre-registered rounds (about 25 strategies and models on
 US100 intraday plus swing tests), the best honest results were around +0.1 R before significance
 checks. Nothing came close to +0.4 R.
+
+## Round 5: published setups of documented traders and researchers (2026-10-17)
+
+Tested as published on US100 2019-01 .. 2026-04 (rules frozen in `docs/STRATEGIES_R5.md`), with our
+costs and Rald's $5 rule:
+
+| setup | trades | avg per trade | points/trade (t) | verdict |
+|---|---|---|---|---|
+| Crabel NR7 stretch breakout | 257 | +$1.34 | +15.4 (2.0) | small edge, fails |
+| Williams volatility breakout | 1,161 | +$0.76 | +8.2 (2.35) | small edge, fails |
+| Zarattini 5-min ORB | 1,814 | +$0.58 | +2.0 (0.9) | about zero (mostly 2021-22) |
+| Zarattini noise-area momentum | 1,558 | n/a* | +5.2 (2.2) | small edge, 6/7 years positive, fails |
+| Raschke Holy Grail | 45 | -$4.14 | -8.1 (-1.7) | loses |
+
+\* The risk unit I pre-registered for noise momentum (the distance to its trailing stop at entry) is
+often only 1-2 points. 0.5% sizing would then imply huge positions, so the dollar figure is meaningless.
+The points column is independent of position size.
+
+**What we learned**
+- **Published methods can work, but slightly.** Three famous setups show a small positive edge in
+  points (about 0.05-0.1 R), in line with independent replications that found these edges shrinking
+  after costs. None clears t >= 3.
+- **The $5 rule versus edge size:** at $12.50 risk per trade, $5 = 0.4 R per trade. These edges give
+  about $1-3 per trade. Reaching $5 per trade with a 0.1 R edge would need about $50 risk (2% per trade),
+  which is unsafe with a 4% daily limit.
+- The final six months (2026-04-16 .. 2026-10-15) are still untouched.

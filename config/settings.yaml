@@ -204,3 +204,12 @@ instruments:
   XAUUSD: {feed: "XAU/USD",         root: data/instruments/XAUUSD, spread: 0.30,    stop_slippage: 0.10,    swap: {type: pct, annual_pct: 7.5},  sanity: [500, 10000]}
   EURUSD: {feed: "EUR/USD",         root: data/instruments/EURUSD, spread: 0.00010, stop_slippage: 0.00005, swap: {type: price, per_night: 0.0001}, sanity: [0.5, 2.0]}
 swing_history_start: "2018-01-01"   # one extra year so 200-day averages exist from 2019
+
+# Round 7 cross-market inputs (features only; never traded). Same Dukascopy feed.
+cross_markets:
+  US30:   {feed: "USA30.IDX/USD",    root: data/instruments/US30,   spread: 0, stop_slippage: 0, swap: {type: price}, sanity: [5000, 100000]}
+  US2000: {feed: "USSC2000.IDX/USD", root: data/instruments/US2000, spread: 0, stop_slippage: 0, swap: {type: price}, sanity: [500, 10000]}
+  DXY:    {feed: "DOLLAR.IDX/USD",   root: data/instruments/DXY,    spread: 0, stop_slippage: 0, swap: {type: price}, sanity: [50, 200]}
+  USTBOND: {feed: "USTBOND.TR/USD",  root: data/instruments/USTBOND, spread: 0, stop_slippage: 0, swap: {type: price}, sanity: [50, 300]}
+  USDJPY: {feed: "USD/JPY",          root: data/instruments/USDJPY, spread: 0, stop_slippage: 0, swap: {type: price}, sanity: [50, 250]}
+  OIL:    {feed: "LIGHT.CMD/USD",    root: data/instruments/OIL,    spread: 0, stop_slippage: 0, swap: {type: price}, sanity: [-50, 200]}

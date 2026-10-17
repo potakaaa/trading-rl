@@ -206,9 +206,10 @@ def cmd_data_swing_download(s, a):
     """Round-3 instruments: paced download via the chart endpoint + build processed bars."""
     from src.data.freeserv_history import build, download
     keys = a.only or list(s.instruments)
+    start = a.start or s.swing_history_start
     for key in keys:
         print(f"== {key}", flush=True)
-        probs = download(s, key, s.swing_history_start, log=lambda m: print(m, flush=True))
+        probs = download(s, key, start, log=lambda m: print(m, flush=True))
         if probs:
             print("   PROBLEMS (re-run to retry): " + "; ".join(probs), flush=True)
         build(s, key, log=lambda m: print(m, flush=True))
@@ -240,6 +241,7 @@ def main(argv=None):
     d.add_parser("build").set_defaults(fn=cmd_data_build)
     x = d.add_parser("swing-download")
     x.add_argument("--only", nargs="*", help="instrument keys (default: all in settings.instruments)")
+    x.add_argument("--start", help="first month (default: settings.swing_history_start)")
     x.set_defaults(fn=cmd_data_swing_download)
     x = d.add_parser("check-live")
     x.add_argument("--seconds", type=int, default=15)

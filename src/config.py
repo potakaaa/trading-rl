@@ -278,6 +278,7 @@ class Settings(BaseModel):
     challenge: Challenge
     research: Research
     instruments: dict[str, InstrumentSpec] = {}
+    cross_markets: dict[str, InstrumentSpec] = {}
     swing_history_start: str = "2018-01-01"
 
     def missing_todos(self) -> list[str]:

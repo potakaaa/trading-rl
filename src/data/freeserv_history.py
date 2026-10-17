@@ -19,7 +19,7 @@ from src.data.dukascopy_live import DukascopyLiveProvider, FeedError
 
 def instrument_settings(settings: Settings, key: str) -> Settings:
     """A copy of settings pointed at one round-3 instrument (data root, sanity range, feed name)."""
-    spec = settings.instruments[key]
+    spec = _spec(settings, key)
     s = settings.model_copy(deep=True)
     s.data.root = spec.root
     s.data.sanity_price_range = spec.sanity
@@ -28,8 +28,12 @@ def instrument_settings(settings: Settings, key: str) -> Settings:
     return s
 
 
+def _spec(settings: Settings, key: str):
+    return settings.instruments[key] if key in settings.instruments else settings.cross_markets[key]
+
+
 def raw_dir(settings: Settings, key: str) -> Path:
-    root = Path(settings.instruments[key].root)
+    root = Path(_spec(settings, key).root)
     root = root if root.is_absolute() else PROJECT_ROOT / root
     return root / "raw" / "freeserv" / key
 

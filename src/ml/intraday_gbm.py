@@ -6,11 +6,11 @@ import numpy as np
 import pandas as pd
 
 from src.ml.intraday_dataset import FEATURES
+from src.ml.sequencing import MAX_PER_DAY, MAX_PER_SESSION, sequence  # noqa: F401
 
 PARAMS = dict(n_estimators=300, learning_rate=0.03, num_leaves=15, min_child_samples=100, subsample=0.8,
               subsample_freq=1, colsample_bytree=0.8, reg_lambda=1.0, verbose=-1)
 TAUS = [0.00, 0.05, 0.10, 0.15, 0.20, 0.30]
-MAX_PER_SESSION, MAX_PER_DAY = 2, 3
 RISK_USD = 12.5                 # 0.5% of $2,500
 WIN_R = 5.0 / RISK_USD          # Rald's rule: a trade is a success only if it nets > $5 (= 0.4 R)
 
@@ -38,31 +38,6 @@ class Models:
         out["p_long"] = self.long.predict(X)
         out["p_short"] = self.short.predict(X)
         return out
-
-
-def sequence(df: pd.DataFrame, choose) -> pd.DataFrame:
-    """Walk decisions in time order with one position at a time and the session/day caps.
-    `choose(row) -> 'long' | 'short' | None`. Returns the trades taken."""
-    rows = []
-    for _, day in df.sort_values("t").groupby("date", sort=True):
-        busy_until = None
-        per_sess = {"am": 0, "pm": 0}
-        n_day = 0
-        for _, r in day.iterrows():
-            if busy_until is not None and r["t"] < busy_until:
-                continue
-            sess = "am" if r["minute"] < 12 * 60 else "pm"
-            if per_sess[sess] >= MAX_PER_SESSION or n_day >= MAX_PER_DAY:
-                continue
-            side = choose(r)
-            if side is None or pd.isna(r[f"r_{side}"]):
-                continue
-            rows.append({"t": r["t"], "date": r["date"], "side": side, "r": r[f"r_{side}"],
-                         "r_2x": r[f"r_{side}_2x"]})
-            busy_until = pd.Timestamp(r[f"exit_{side}"]) if pd.notna(r[f"exit_{side}"]) else r["t"]
-            per_sess[sess] += 1
-            n_day += 1
-    return pd.DataFrame(rows, columns=["t", "date", "side", "r", "r_2x"])
 
 
 def _chooser(pred: pd.DataFrame, tau: float, use_gate: bool):

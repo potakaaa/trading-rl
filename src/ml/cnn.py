@@ -1,13 +1,15 @@
 """Round 6: 1D-CNN on the last 120 one-minute bars + round-4 features (docs/STRATEGIES_R6.md, frozen)."""
 from __future__ import annotations
 
+# NOTE: never import LightGBM in a process that uses this module. On macOS both bring their own OpenMP
+# runtime and the process segfaults once either trains (seen in the test suite).
 import numpy as np
 import pandas as pd
 import torch
 from torch import nn
 
 from src.ml.intraday_dataset import FEATURES
-from src.ml.intraday_gbm import sequence
+from src.ml.sequencing import sequence
 
 SEQ = 120
 THETAS = [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60]

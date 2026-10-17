@@ -17,8 +17,7 @@ from src.config import PROJECT_ROOT
 NY = "America/New_York"
 WINDOWS = [("09:57", "10:00"), ("10:27", "10:30")]          # amended (budget), docs/STRATEGIES_R8.md
 BUDGET_USD = 75.0
-USD_PER_RECORD = 0.1494 / 68020      # MEASURED: Databento's official quote for 68,020 trade records (2024-03-13)
-SAFETY = 1.10                        # meter 10% above the measured official rate
+SAFETY = 1.05                        # meter = official quote + 5%
 ROOT = PROJECT_ROOT / "data" / "databento"
 DAY_DIR = ROOT / "nq_trades"
 LEDGER = ROOT / "ledger.json"
@@ -39,9 +38,10 @@ class Ledger:
     def spent(self) -> float:
         return self.data["spent_usd"]
 
-    def charge(self, records: int) -> None:
+    def charge(self, records: int, usd: float) -> None:
+        """usd = Databento's OFFICIAL quote for the request (billing is not proportional to records)."""
         with self.lock:
-            self.data["spent_usd"] += records * USD_PER_RECORD * SAFETY
+            self.data["spent_usd"] += usd
             self.data["records"] += records
             self.data["days"] += 1
             self.path.write_text(json.dumps(self.data, indent=1))
@@ -64,6 +64,22 @@ def client():
 
 def _utc(day: str, hhmm: str) -> str:
     return pd.Timestamp(f"{day} {hhmm}", tz=NY).tz_convert("UTC").isoformat()
+
+
+def quote_day(c, day: str, retries: int = 6) -> float:
+    """Official Databento price for this day's windows (the metadata call itself is free)."""
+    total = 0.0
+    for a, b in WINDOWS:
+        for k in range(retries):
+            try:
+                total += c.metadata.get_cost(dataset="GLBX.MDP3", symbols=["NQ.v.0"], stype_in="continuous",
+                                             schema="trades", start=_utc(day, a), end=_utc(day, b))
+                break
+            except Exception:  # noqa: BLE001
+                if k == retries - 1:
+                    raise
+                time.sleep(8 * (k + 1))
+    return total
 
 
 def fetch_day(c, day: str, retries: int = 4) -> pd.DataFrame:
@@ -90,19 +106,19 @@ def download(days: list[str], workers: int = 4, log=print) -> dict:
     todo = [d for d in days if not (DAY_DIR / f"{d}.parquet").exists()]
     log(f"{len(days)} days requested, {len(todo)} to download, spent so far ${ledger.spent:.2f}")
     c = client()
-    est_day = 0.06                                    # conservative per-day estimate for the cap check
 
     def one(day):
-        ledger.check(est_day)
+        usd = quote_day(c, day) * SAFETY
+        ledger.check(usd)                               # refuse BEFORE paying if it would cross the cap
         df = fetch_day(c, day)
         df.to_parquet(DAY_DIR / f"{day}.parquet")
-        ledger.charge(len(df))
+        ledger.charge(len(df), usd)
         return day, len(df)
 
     done = 0
     try:
         with ThreadPoolExecutor(workers) as ex:
-            for day, n in ex.map(one, todo):
+            for day, _n in ex.map(one, todo):
                 done += 1
                 if done % 50 == 0:
                     log(f"  {day}: {done}/{len(todo)} days, spent ${ledger.spent:.2f}")

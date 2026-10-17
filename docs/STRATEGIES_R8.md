@@ -32,3 +32,15 @@ Missing (no trades in the window) -> missing value.
 3. t-stat >= 3.0
 4. positive in at least 7 of 11 folds
 For information: `flow` minus `base_am`, and the gain share of the order-flow features.
+
+## Amendment (2026-10-17, budget, before any order-flow data was analysed)
+A one-day test showed Databento's real price is about 1.6x my byte-based estimate. The busiest minutes after
+the 09:30 open also cost more than scaling by window length predicts. Real quotes for the original plan
+came to about $205, over the $125 credit. Changes:
+- **Decisions:** only **10:00 and 10:30 NY** (2 per day). **Windows:** only the **3 minutes before each**
+  (09:57-10:00, 10:27-10:30). Estimated about $58 for 2019-01 .. 2026-04 at real prices.
+- **Features (6):** `of_delta3`, `of_vol3_rel`, `of_trades3_rel`, `of_big_delta3`, `of_avg_size3`,
+  `of_vwap_dist3`, as defined above but over 3 minutes. The 10-minute features are dropped.
+- **Arms:** `base_am` = the round-4 model at the same 2 decision times; `flow` = plus the 6 features.
+- **Budget:** the meter uses the measured official rate ($2.196 per 1,000 trade records, x1.1), with a hard stop at $75.
+- Pass criteria unchanged.

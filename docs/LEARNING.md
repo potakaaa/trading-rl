@@ -473,3 +473,6 @@ A walk-forward LightGBM model scored every day's stretch-breakout trade (1,751 c
 
 The model improved R per trade by about 70% and cut the worst drawdown by about two-thirds. That falls short of
 the goal: 0.20 R is needed for $5 at 1% risk, and 0.40 R at 0.5%.
+
+**Round 11** (best trade of the day across Crabel, Williams and noise momentum, chosen by a meta-model): **worse**. 476
+out-of-sample trades, 0.064 R per trade, only 5 of 11 periods positive. More choice let the model chase noise.

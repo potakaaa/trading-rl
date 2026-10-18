@@ -355,7 +355,8 @@ def test_setup_seen_late_after_outage_is_blocked(settings, synthetic, tmp_path):
         eng.poll(t + pd.Timedelta(seconds=20))
     blocks = eng.store.blocks()
     assert any(any(r.startswith("late_data") for r in b["reasons"]) for b in blocks), blocks
-    assert not eng.store.signals(10)        # the 10:05 setup must not become a signal
+    from src.live.rules_desk import RULES
+    assert not [s for s in eng.store.signals(10) if s["setup_type"] not in RULES]   # the 10:05 ICT setup is blocked
 
 
 def test_api_before_bootstrap_does_not_crash(settings, synthetic, tmp_path):

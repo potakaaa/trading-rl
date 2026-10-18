@@ -508,3 +508,17 @@ trade (-$8.00 at 1%, -$4.00 at 0.5%), 27% winners. 14(a) also lost (-0.15 R over
 did not carry into fresh data. As the 14th idea tried, part of its history was luck, and the final test caught it.
 **The untouched data is now used up.** From here, the only clean test of any idea is forward paper trading.
 Databento spend to date: $52.38 of the $125 credit.
+
+## Paper trading the top candidates (2026-10-18)
+
+The untouched data is used up, so the remaining honest test is **new live data**. The live engine now also runs:
+- **Crabel NR4 bracket** (round 9's most stable setup). At the 09:30 open, if yesterday was an NR4 day, you get two pending
+  orders: a BUY STOP at open + stretch and a SELL STOP at open - stretch. When one fills, cancel the other. The stop is at the
+  other level, the target is 3R, and you are flat by 16:00.
+- **Opening drive** (round 14a). At 10:00, if the 09:30-10:00 move is at least half a stretch, trade in its direction at market.
+  The stop goes at the opposite extreme of that half hour, the target is 3R, and you are flat by 16:00.
+
+Both use the **same code as the backtest** (a replay test checks that live and backtest results are identical). Both pass
+the prop guard and the news blackout, and are blocked if the feed delivers them late. They are scored separately in the weekly paper report,
+with $ per trade at 0.5% and 1% risk against the $5 goal. Expect about 4-6 Crabel trades and about 6 drive trades per month.
+It takes about 30 trades per setup (roughly 5-6 months) before the numbers mean much.

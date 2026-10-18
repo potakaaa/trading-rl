@@ -87,6 +87,8 @@ class LiveEngine:
         self._alerted: set[str] = set()
         self.last_detections = None
         self.confidence_notes = self._backtest_win_rates()
+        from src.live.rules_desk import RulesDesk
+        self.rules = RulesDesk(self)
 
     # --------------------------------------------------------------------------- events
     def emit(self, kind: str, data: dict) -> None:
@@ -186,6 +188,7 @@ class LiveEngine:
             self.emit("bar", {"tf": "1m", "bars": [_bar_json(t, r) for t, r in new.iterrows()]})
         self._heartbeat(now)
         self.update_paper(now)
+        self.rules.poll(now)
         if self.last_bar is not None:
             latest_close = self._floor5(self.last_bar + ONE)       # newest 5m boundary we have data up to
             t = self.last_close_processed + FIVE
@@ -341,7 +344,10 @@ class LiveEngine:
         m1 = M1.from_frame(self.m1)
         lot_value = self.s.broker.lot_value_per_point
         changed = False
+        from src.live.rules_desk import RULES
         for sg in open_sigs:
+            if sg["setup_type"] in RULES:
+                continue                       # tracked by the rules desk with its own (backtest) code
             armed = pd.Timestamp(sg["created_at"])
             od, fd = pd.Timestamp(sg["order_deadline"]), pd.Timestamp(sg["flat_deadline"])
             f = simulate(m1, sg["direction"], sg["entry"], sg["stop"], sg["target"], armed, od, fd,

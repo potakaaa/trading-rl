@@ -71,7 +71,16 @@ def compare(store: Store, settings: Settings, exp: Expectation | None = None) ->
                    f"for {n} trades")
     else:
         verdict = f"in line with the backtest: live mean {mean:+.2f}R within [{lo:+.2f}, {hi:+.2f}] for {n} trades"
+    by_setup = {}
+    for name, g in closed.groupby("setup_type"):
+        r = g["paper_r"].to_numpy(dtype=float)
+        by_setup[name] = {"closed": len(r), "mean_r": float(r.mean()),
+                          "usd_per_trade_0.5pct": float(r.mean() * 12.5), "usd_per_trade_1pct": float(r.mean() * 25),
+                          "goal_5usd_at_1pct": "on track" if r.mean() >= 0.2 else "below",
+                          "goal_5usd_at_0.5pct": "on track" if r.mean() >= 0.4 else "below",
+                          "note": "too few trades to judge (need 30+)" if len(r) < 30 else ""}
     return {"weeks": weeks, "n_signals": len(df), "n_closed": n, "mean_r": mean, "expected_range": [lo, hi],
+            "by_setup": by_setup,
             "verdict": verdict, "drift": drift, "expectation": exp.__dict__,
             "taken": int((df["action"] == "taken").sum()), "skipped": int((df["action"] == "skipped").sum())}
 
@@ -83,7 +92,9 @@ def write_html(result: dict, path) -> None:
     page = (f"<html><head><meta charset=utf-8><title>Paper trading</title><style>{CSS}</style></head><body>"
             "<h1>Paper trading vs backtest</h1>"
             f"<div class={cls}><b>{result['verdict']}</b></div>"
-            + kv_table({k: v for k, v in result.items() if k not in ("weeks", "expectation", "verdict")})
+            + kv_table({k: v for k, v in result.items() if k not in ("weeks", "expectation", "verdict", "by_setup")})
+            + "<h3>By setup ($5/trade goal: R >= 0.2 at 1% risk, R >= 0.4 at 0.5% risk)</h3>"
+            + df_table(pd.DataFrame(result.get("by_setup", {})).T)
             + "<h3>Backtest expectation</h3>" + kv_table(result["expectation"])
             + "<h3>By week</h3>" + df_table(weeks, index=False) + "</body></html>")
     path.write_text(page)

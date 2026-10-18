@@ -486,3 +486,19 @@ trade = $1.2-1.6 at 0.5% risk and $2.4-3.3 at 1% risk. The goal needs 0.40 R (0.
 
 **Round 13** (pullback entry halfway back after the stretch breakout): 781 out-of-sample trades, 0.044 R per trade
 (0.007 R with the meta-model). Fails. Waiting for a pullback mostly filled the breakouts that were failing.
+
+## Round 14: opening drive at 10:00 + NQ order-flow confirmation (2026-10-18), the closest so far
+
+**Rule:** at 10:00 NY, trade in the direction of the 09:30-10:00 move if it is at least half the normal "stretch".
+Enter at market, stop at the opposite 09:30-10:00 extreme, target 3R, otherwise exit at 16:00.
+Variant (b) only trades when the last 3 minutes of NQ futures order flow (buy minus sell aggression) agree.
+
+| | trades | R/trade | $ @1% | $ @0.5% | t | positive periods | worst DD @1% |
+|---|---|---|---|---|---|---|---|
+| (a) all, 2021-26 out-of-sample | 409 | 0.199 | $4.98 | $2.49 | 2.73 | 10/11 | $314 |
+| (b) flow agrees, 2021-26 | 225 | 0.221 | $5.52 | $2.76 | 2.27 | 10/11 | $196 |
+| (b) flow agrees, 2019-26 (fixed rule, every year) | 308 | 0.214 | $5.35 | $2.68 | 2.57 | **8/8 years** | |
+
+**Strictly by the pre-registered window:** (a) is $0.02 short of $5 at 1%, and (b) has t below the 2.5 trust bar.
+Over the whole 2019-2026 history, (b) is positive in every year. It is the most consistent result in the project,
+with the caveat that it is the 14th idea tested, so part of it may be luck. The $5-at-0.5% goal (0.40 R) is not close.

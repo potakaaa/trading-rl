@@ -210,3 +210,63 @@ def walk_forward(t: pd.DataFrame, folds: list[tuple[str, str]], lookback_years: 
 def portfolio(chosen: pd.DataFrame, max_per_day: int = 3) -> pd.DataFrame:
     c = chosen.sort_values("entry_time")
     return c.groupby(c["entry_time"].dt.tz_convert("America/New_York").dt.date, group_keys=False).head(max_per_day)
+
+
+def crabel_pullback(day: Day, cost: Cost, d1: pd.DataFrame, target_r: float = 3.0,
+                    last_minute: int = 690) -> list[dict]:
+    """Round 13: stretch breakout decides direction; enter on a limit at the halfway level afterwards."""
+    hist = d1[d1["ny_date"] < day.date].tail(10)
+    if len(hist) < 10:
+        return []
+    stretch = float(np.minimum(hist["open"] - hist["low"], hist["high"] - hist["open"]).mean())
+    if stretch <= 0:
+        return []
+    op = day.o[0]
+    hit = stop_entry(day, 0, day.last, op + stretch, op - stretch, cost)
+    if hit is None:
+        return []
+    j0, side, _ = hit
+    lvl = op + 0.5 * stretch if side == "long" else op - 0.5 * stretch
+    stop = op - stretch if side == "long" else op + stretch
+    sp = cost.spread
+    for j in range(j0 + 1, day.last + 1):
+        if day.minute[j] >= last_minute:
+            return []
+        if side == "long" and day.lo[j] + sp <= lvl:
+            fill = min(lvl, day.o[j] + sp)            # limit: at the level or better (gap down through it)
+            break
+        if side == "short" and day.h[j] >= lvl:
+            fill = max(lvl, day.o[j])
+            break
+    else:
+        return []
+    if (side == "long" and fill <= stop) or (side == "short" and fill >= stop):
+        return []
+    tgt = fill + target_r * (fill - stop) if side == "long" else fill - target_r * (stop - fill)
+    jx, px, why, mae = run_position(day, j, side, fill, stop, tgt, cost)
+    r = trade_row("crabel_pullback", day, side, j, fill, stop, jx, px, why, mae)
+    return [r] if r else []
+
+
+def opening_drive(day: Day, cost: Cost, d1: pd.DataFrame, min_move: float = 0.5, max_risk: float = 1.5,
+                  target_r: float = 3.0) -> list[dict]:
+    """Round 14: at 10:00, trade the 09:30-10:00 move direction if it is >= min_move x stretch."""
+    hist = d1[d1["ny_date"] < day.date].tail(10)
+    k = day.idx(600)
+    if len(hist) < 10 or k is None:
+        return []
+    stretch = float(np.minimum(hist["open"] - hist["low"], hist["high"] - hist["open"]).mean())
+    move = day.c[k - 1] - day.o[0]
+    if stretch <= 0 or abs(move) < min_move * stretch:
+        return []
+    side = "long" if move > 0 else "short"
+    entry = day.o[k] + (cost.spread if side == "long" else 0.0)
+    stop = day.lo[:k].min() if side == "long" else day.h[:k].max()
+    risk = abs(entry - stop)
+    wrong = (side == "long" and entry <= stop) or (side == "short" and entry >= stop)
+    if risk <= 0 or risk > max_risk * stretch or wrong:
+        return []
+    tgt = entry + target_r * risk if side == "long" else entry - target_r * risk
+    jx, px, why, mae = run_position(day, k, side, entry, stop, tgt, cost)
+    r = trade_row("opening_drive", day, side, k, entry, stop, jx, px, why, mae)
+    return [r] if r else []

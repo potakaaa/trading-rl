@@ -502,3 +502,9 @@ Variant (b) only trades when the last 3 minutes of NQ futures order flow (buy mi
 **Strictly by the pre-registered window:** (a) is $0.02 short of $5 at 1%, and (b) has t below the 2.5 trust bar.
 Over the whole 2019-2026 history, (b) is positive in every year. It is the most consistent result in the project,
 with the caveat that it is the 14th idea tested, so part of it may be luck. The $5-at-0.5% goal (0.40 R) is not close.
+
+**Round 14 final test (one time, 2026-04-16 .. 2026-10-15, never touched before):** 14(b) lost: 15 trades, -0.32 R per
+trade (-$8.00 at 1%, -$4.00 at 0.5%), 27% winners. 14(a) also lost (-0.15 R over 33 trades). The years-long positive record
+did not carry into fresh data. As the 14th idea tried, part of its history was luck, and the final test caught it.
+**The untouched data is now used up.** From here, the only clean test of any idea is forward paper trading.
+Databento spend to date: $52.38 of the $125 credit.

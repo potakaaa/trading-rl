@@ -11,3 +11,5 @@ Same goal and verdict rules as round 10.
 
 ## Final test (one time), started 2026-10-18 at Rald's request
 Variant 14(b) exactly as above, unchanged, on 2026-04-16 .. 2026-10-15. Order flow for 09:57-10:00 is bought from Databento for those days only (quoted first, budget cap respected).
+
+**Result:** FAIL. 15 trades, -0.320 R per trade (2x costs -0.333 R), t -0.94. 14(a): 33 trades, -0.145 R.

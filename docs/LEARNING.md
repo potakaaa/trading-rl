@@ -460,3 +460,16 @@ the narrowest range of the last 4 days), with a 3R target. The past kept choosin
 positive with doubled costs. At about $2 per trade and about 5 trades a month, it still fails Rald's $5-per-trade
 bar and t >= 3. **PBO** is the share of periods where the variant that looked best in the past did *worse than
 average* afterwards. Near 0 means the choice is real; 0.5 or more means it is luck.
+
+## Round 10: meta-labelled stretch breakout (goal: $5/trade at 0.5% and 1% risk), 2026-10-18
+
+A walk-forward LightGBM model scored every day's stretch-breakout trade (1,751 candidates) using pre-trade context
+(range contraction, gap, overnight range, trend, trigger time, news day) and took only the higher-scoring ones.
+
+| out-of-sample | trades | R/trade | $ @0.5% | $ @1% | t | worst DD @1% |
+|---|---|---|---|---|---|---|
+| all breakout days | 1,281 | 0.077 | $0.97 | $1.94 | 2.6 | $548 |
+| model-selected | 404 | **0.132** | $1.65 | **$3.29** | 2.5 | **$166** |
+
+The model improved R per trade by about 70% and cut the worst drawdown by about two-thirds. That falls short of
+the goal: 0.20 R is needed for $5 at 1% risk, and 0.40 R at 0.5%.

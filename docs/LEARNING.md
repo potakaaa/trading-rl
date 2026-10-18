@@ -556,3 +556,18 @@ The filter (only trade a setup while its last 20 shadow trades are net positive)
 Normal losing streaks of a real edge are bigger than 8 R. **The $5 bar is in dollars, but the drawdown limit is 8% of the account.**
 On a bigger account, $5 becomes a much smaller R. For example, on a $10,000 account at 0.5% risk ($50), $5 = 0.10 R, and
 Crabel NR4 (0.16 R) would clear it while its drawdown limit (16 R) stays the same.
+
+## Success bar redefined by Rald (2026-10-18): R per trade instead of dollars
+
+**New bar:** >= 0.15 R per trade and worst drawdown < 16 R ($200 at 0.5% on $2,500), plus the usual checks (>= 100 trades,
+positive with 2x costs, t >= 2.5, >= 7/11 positive periods, positive over the last 2 years).
+
+**Only Crabel NR4 passes** (the round-9 walk-forward result):
+- 301 out-of-sample trades, +0.161 R per trade ($2.01 at 0.5%), t 2.64, 9/11 periods positive
+- worst drawdown 15.2 R ($190 at 0.5%), last 2 years +0.305 R
+
+**Caveats:**
+- **Post hoc:** the 0.15 R bar was set after seeing this result, so this is a CANDIDATE, not proof.
+- **Thin margin:** the drawdown is close to the $200 limit, which is why the internal $140 halt matters.
+
+Crabel NR4 is already running in the live paper engine. About 30 live trades (about 6 months) will show whether it is real.

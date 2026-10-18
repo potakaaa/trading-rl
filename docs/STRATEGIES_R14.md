@@ -8,3 +8,6 @@ Same goal and verdict rules as round 10.
   - (a) all signals
   - (b) only when NQ order flow agrees: sign(of_delta3 for 09:57-10:00) == the move direction
   - (c) the round-10-style meta-model on (a), with the round-10 features plus the 6 round-8 order-flow features at 10:00
+
+## Final test (one time), started 2026-10-18 at Rald's request
+Variant 14(b) exactly as above, unchanged, on 2026-04-16 .. 2026-10-15. Order flow for 09:57-10:00 is bought from Databento for those days only (quoted first, budget cap respected).

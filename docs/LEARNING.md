@@ -483,3 +483,6 @@ that round 10's 0.132 R also contains some luck.
 
 **Status of the "$5 per trade" goal after rounds 10-12:** the best honest out-of-sample result is about 0.10-0.13 R per
 trade = $1.2-1.6 at 0.5% risk and $2.4-3.3 at 1% risk. The goal needs 0.40 R (0.5%) or 0.20 R (1%).
+
+**Round 13** (pullback entry halfway back after the stretch breakout): 781 out-of-sample trades, 0.044 R per trade
+(0.007 R with the meta-model). Fails. Waiting for a pullback mostly filled the breakouts that were failing.

@@ -522,3 +522,20 @@ Both use the **same code as the backtest** (a replay test checks that live and b
 the prop guard and the news blackout, and are blocked if the feed delivers them late. They are scored separately in the weekly paper report,
 with $ per trade at 0.5% and 1% risk against the $5 goal. Expect about 4-6 Crabel trades and about 6 drive trades per month.
 It takes about 30 trades per setup (roughly 5-6 months) before the numbers mean much.
+
+## Round 15: five new families, walk-forward selected (2026-10-18)
+
+| family | trades | R/trade | $ @1% | $ @0.5% | t | positive periods |
+|---|---|---|---|---|---|---|
+| **ORB** (mostly 15-min OR on NR4 days, 3R) | 322 | +0.217 | **$5.42** | $2.71 | 2.56 | 8/11 |
+| gap-and-go | 238 | +0.131 | $3.28 | $1.64 | 1.16 | 6/11 |
+| opening-drive grid | 206 | +0.067 | $1.67 | $0.83 | 0.69 | 6/11 |
+| inside-day bracket | 135 | -0.071 | -$1.77 | -$0.88 | -1.24 | 3/11 |
+| afternoon trend | 857 | -0.118 | -$2.95 | -$1.47 | -2.70 | 3/11 |
+
+**ORB met the pre-registered $5-at-1% candidate bar, but it is not a success:**
+- **Front-loaded:** most of the profit came from 2021-2022 (+0.48 and +0.60 R per trade). 2023 was about 0, 2025 was -0.21 R, and early 2026 -0.05 R.
+- **Unsafe drawdown:** its worst drawdown, 27.7 R, is the most recent stretch (Apr 2025 - Mar 2026). That is $693 at 1% risk and $347 at 0.5%,
+  both far over Equity Edge's $200 limit, so the challenge would have failed at either risk level.
+- **Matches outside replications,** which found the ORB edge was mostly 2022 and has compressed since.
+- **Not added separately:** it is close to the Crabel NR4 bracket already in paper trading, which will show whether it still works.

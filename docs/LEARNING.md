@@ -476,3 +476,10 @@ the goal: 0.20 R is needed for $5 at 1% risk, and 0.40 R at 0.5%.
 
 **Round 11** (best trade of the day across Crabel, Williams and noise momentum, chosen by a meta-model): **worse**. 476
 out-of-sample trades, 0.064 R per trade, only 5 of 11 periods positive. More choice let the model chase noise.
+
+**Round 12** (walk-forward choice of exit: 2R/3R/5R/16:00, then the round-10 meta-model): 434 trades, 0.098 R per trade
+($1.22 at 0.5%, $2.44 at 1%), t 1.9. 3R was picked in 9 of 11 periods. It came in lower than round 10, which shows
+that round 10's 0.132 R also contains some luck.
+
+**Status of the "$5 per trade" goal after rounds 10-12:** the best honest out-of-sample result is about 0.10-0.13 R per
+trade = $1.2-1.6 at 0.5% risk and $2.4-3.3 at 1% risk. The goal needs 0.40 R (0.5%) or 0.20 R (1%).

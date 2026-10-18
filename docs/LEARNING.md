@@ -442,3 +442,21 @@ but nowhere near $5 per trade or statistical significance.
   Databento's official quote for each day before downloading it.
 - **Unsigned sizes:** Databento trade sizes are unsigned integers, so "buy minus sell" wrapped around to huge numbers.
   This was caught by runtime warnings before any result was used.
+
+## Round 9: walk-forward optimisation on US100 (2026-10-18)
+
+69 variants of the three small-edge setups (entry distance, stop, target, day filter) were tested. Each period's
+variant was chosen **only on the previous 3 years** and traded on the next unseen 6 months (11 times).
+
+| out-of-sample 2021-2026 | trades | $/trade | t | positive periods | overfitting score (PBO) |
+|---|---|---|---|---|---|
+| Crabel breakout | 301 | **+$2.01** | 2.64 | 9/11 | **0.09** (stable) |
+| Noise momentum | 1,103 | +$0.69 | 1.60 | 8/11 | 0.64 (mostly noise) |
+| Williams breakout | 766 | +$0.59 | 0.90 | 6/11 | 0.64 (mostly noise) |
+| All three | 2,049 | +$0.76 | 2.17 | 6/11 | |
+
+**The most robust signal in the project** is Crabel's opening stretch breakout after an NR4 day (yesterday
+the narrowest range of the last 4 days), with a 3R target. The past kept choosing the same variant, and it stayed
+positive with doubled costs. At about $2 per trade and about 5 trades a month, it still fails Rald's $5-per-trade
+bar and t >= 3. **PBO** is the share of periods where the variant that looked best in the past did *worse than
+average* afterwards. Near 0 means the choice is real; 0.5 or more means it is luck.

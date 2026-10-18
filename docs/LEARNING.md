@@ -539,3 +539,20 @@ It takes about 30 trades per setup (roughly 5-6 months) before the numbers mean 
   both far over Equity Edge's $200 limit, so the challenge would have failed at either risk level.
 - **Matches outside replications,** which found the ORB edge was mostly 2022 and has compressed since.
 - **Not added separately:** it is close to the Crabel NR4 bracket already in paper trading, which will show whether it still works.
+
+## Round 16: equity-curve filter + Rald's stricter bar (drawdown < $200, profitable over the last 2 years)
+
+The filter (only trade a setup while its last 20 shadow trades are net positive) improved the best family:
+- **ORB:** $6.90 per trade at 1% (0.276 R, t 2.71), positive over the last 2 years. But the drawdown is still 11.8 R ($294 at 1%) and only
+  6 of 11 periods are positive. **No family passed the stricter bar.**
+
+**Why this bar is nearly unreachable on a $2,500 account** (simulation of 300 trades with a 3R target):
+
+| goal | drawdown must stay under | chance a REAL edge of that size stays under |
+|---|---|---|
+| $5 at 1% (0.20 R per trade) | 8 R ($200) | about 0% |
+| $5 at 0.5% (0.40 R per trade) | 16 R ($200) | about 65% (and a 0.40 R edge is extremely rare) |
+
+Normal losing streaks of a real edge are bigger than 8 R. **The $5 bar is in dollars, but the drawdown limit is 8% of the account.**
+On a bigger account, $5 becomes a much smaller R. For example, on a $10,000 account at 0.5% risk ($50), $5 = 0.10 R, and
+Crabel NR4 (0.16 R) would clear it while its drawdown limit (16 R) stays the same.
